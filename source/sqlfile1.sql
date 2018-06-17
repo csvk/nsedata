@@ -55,8 +55,63 @@ CREATE INDEX `idxDuplicates` ON `tblDuplicates` ( `Symbol` ASC, `Date` ASC );
 CREATE TABLE `tblSkipped` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER );
 CREATE INDEX `idxSkipped` ON `tblSkipped` ( `Symbol` ASC, `Date` ASC );
 
+CREATE TABLE `tblDumpReplace` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxDumpReplace` ON `tblDumpReplace` ( `Symbol` ASC, `Date` ASC );
+
 CREATE TABLE `tblMultipliers` ( `Symbol` TEXT, `Date` TEXT, `Multiplier` REAL, `ResultantMultiplier` REAL, PRIMARY KEY(`Symbol`,`Date`) );
 CREATE UNIQUE INDEX `idxMultipliers` ON `tblMultipliers` ( `Symbol` ASC, `Date` ASC );
+
+CREATE TABLE "tblSymbolRange" ( `Symbol` TEXT, `StartDate` TEXT, `EndDate` TEXT );
+CREATE INDEX `idxSymbolRange` ON `tblSymbolRange` ( `Symbol` ASC, `StartDate` ASC, `EndDate` ASC );
+
+CREATE TABLE `tblModDump1995` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump1995` ON `tblModDump1995` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump1996` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump1996` ON `tblModDump1996` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump1997` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump1997` ON `tblModDump1997` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump1998` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump1998` ON `tblModDump1998` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump1999` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump1999` ON `tblModDump1999` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2000` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2000` ON `tblModDump2000` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2001` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2001` ON `tblModDump2001` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2002` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2002` ON `tblModDump2002` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2003` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2003` ON `tblModDump2003` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2004` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2004` ON `tblModDump2004` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2005` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2005` ON `tblModDump2005` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2006` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2006` ON `tblModDump2006` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2007` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2007` ON `tblModDump2007` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2008` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2008` ON `tblModDump2008` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2009` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2009` ON `tblModDump2009` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2010` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2010` ON `tblModDump2010` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2011` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2011` ON `tblModDump2011` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2012` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2012` ON `tblModDump2012` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2013` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2013` ON `tblModDump2013` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2014` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2014` ON `tblModDump2014` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2015` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2015` ON `tblModDump2015` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2016` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2016` ON `tblModDump2016` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2017` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2017` ON `tblModDump2017` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblModDump2018` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
+CREATE UNIQUE INDEX `idxModDump2018` ON `tblModDump2018` ( `Symbol` ASC, `Date` ASC );
 
 -- All symbols counts, max, min dates
 select symbol, count(date), min(date), max(date) from (
@@ -84,6 +139,32 @@ union select symbol, date from tblDump2015
 union select symbol, date from tblDump2016
 union select symbol, date from tblDump2017
 union select symbol, date from tblDump2018) group by symbol
+
+select symbol, min(MinDate) MinDate, max(MaxDate) MaxDate from (
+      select symbol, min(date) MinDate, max(date) MaxDate from tblDump1995 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump1996 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump1997 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump1998 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump1999 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2000 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2001 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2002 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2003 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2004 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2005 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2006 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2007 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2008 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2009 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2010 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2011 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2012 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2013 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2014 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2015 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2016 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2017 group by symbol
+union select symbol, min(date) MinDate, max(date) MaxDate from tblDump2018 group by symbol) group by symbol
 
 
 SELECT D.*

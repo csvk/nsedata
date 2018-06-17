@@ -16,6 +16,11 @@ os.chdir(PATH)
 
 db = dbhandler.DataDB(DBPATH)
 
-#db.load_multipliers(CSVPATH)
+#db.load_multipliers(type='refresh')
 #db.load_tbldumps_from_csv(CSVPATH, start_year='1995')
-db.calculate_skipped_record_errors()
+#db.calculate_skipped_record_errors()
+#db.load_dump_replace_records()
+#db.load_modified_tbldumps()
+#db.fetch_records('tblModDump', ['TCS', 'RELIANCE'], '19950531', '20171011')
+#db.fetch_records('tblModDump', ['PDUMJEIND', 'PITTILAM'], '19950101', '20181231')
+db.save_symbols_date_range('2018')

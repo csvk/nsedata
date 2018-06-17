@@ -18,11 +18,20 @@ class DataDB:
 
     # constants
 
-    BONUS_SPLITS_FILE = 'modifiers/bonus_splits.csv'
-    UNVERIFIED_SKIPPED_RECORDS_FILE = 'unverified_skipped_records.csv'
-    UNVERIFIED_SELECTED_RECORDS_FILE = 'unverified_selected_records.csv'
-    REPLACEBLE_SELECTED_RECORDS = 'replaceble_selected_records.csv'
-    REPLACEBLE_SKIPPED_RECORDS = 'replaceble_skipped_records.csv'
+    YEARS = ['1995', '1996', '1997', '1998', '1999', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007',
+             '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018']
+
+    MOD_PATH = 'nse_eod_modifiers/'
+    BONUS_SPLITS_FILE = '{}bonus_splits.csv'.format(MOD_PATH)
+    SYMBOL_CHANGE_FILE = '{}symbol_change.csv'.format(MOD_PATH)
+    MULTIPLIERS_FILE = '{}multipliers.csv'.format(MOD_PATH)
+    #SYMBOLS_DATE_RANGE_FILE = '{}symbols_date_range.csv'.format(MOD_PATH)
+    SYMBOL_CHANGE_DUPLICATES_FILE = '{}symbol_change_duplicates.csv'.format(MOD_PATH)
+    UNVERIFIED_SKIPPED_RECORDS_FILE = '{}unverified_skipped_records.csv'.format(MOD_PATH)
+    UNVERIFIED_SELECTED_RECORDS_FILE = '{}unverified_selected_records.csv'.format(MOD_PATH)
+    REPLACEBLE_SELECTED_RECORDS = '{}replaceble_selected_records.csv'.format(MOD_PATH)
+    REPLACEBLE_SKIPPED_RECORDS = '{}replaceble_skipped_records.csv'.format(MOD_PATH)
+
 
     def __init__(self, db, type='EQ'):
 
@@ -39,24 +48,44 @@ class DataDB:
         print('Closing DB connection..')
         self.conn.close()
 
-    def load_multipliers(self, csvpath):
+    def truncate_table(self, table, msg=False):
 
+        if msg is True:
+            print('Truncating table {}'.format(table))
 
-        #c = self.conn.cursor()
-        #c.execute(truncate_query)
-        #self.conn.commit()
+        c = self.conn.cursor()
+        c.execute('''DELETE FROM {}'''.format(table))
+        self.conn.commit()
+        c.close()
 
-        multipliers = pd.read_csv(csvpath + self.BONUS_SPLITS_FILE)
+    def load_multipliers(self, type='append'):
+
+        multipliers = pd.read_csv(self.MULTIPLIERS_FILE)
         read_count = len(multipliers.index)
-
         print('Initiating loading of {} records into tblMultipliers'.format(read_count))
 
-        multipliers['ResultantMultiplier'] = multipliers['Multiplier']
+        if type == 'append':
+            curr_multipliers = pd.read_sql_query('SELECT Symbol, Date, Multiplier FROM tblMultipliers', self.conn)
+            print('{} records currently in tblMultipliers'.format(len(curr_multipliers.index)))
+            multipliers = pd.concat([curr_multipliers, multipliers], axis=0)
 
+        self.truncate_table('tblMultipliers', True)
+
+        symbol_change_records = pd.read_csv(self.SYMBOL_CHANGE_FILE)
+        symbol_changes = dict(zip(symbol_change_records.Old, symbol_change_records.New))
+
+        for symbol in symbol_changes.keys():
+            multipliers['Symbol'] = np.where(multipliers.Symbol == symbol, symbol_changes[symbol], multipliers.Symbol)
+
+        c = self.conn.cursor()
         for symbol in multipliers['Symbol'].unique():
-            symbol_multipliers = multipliers[multipliers.Symbol == symbol].copy()
-            symbol_multipliers['ResultantMultiplier'] = np.cumprod(symbol_multipliers['Multiplier'])
-            print(symbol_multipliers)
+            print('processing', symbol)
+            df = multipliers[multipliers.Symbol == symbol].copy()
+            df['ResultantMultiplier'] = df['Multiplier'].cumprod()
+            insert_rows = df.values.tolist()
+            c.executemany('INSERT INTO tblMultipliers VALUES (?, ?, ?, ?)', insert_rows)
+            self.conn.commit()
+        c.close()
 
     def insert_records(self, df, table_name):
         """
@@ -78,10 +107,7 @@ class DataDB:
         c = self.conn.cursor()
 
         if type == 'refresh':
-            print('Truncating table')
-            truncate_query = '''DELETE FROM {}'''.format(table_name)
-            c.execute(truncate_query)
-            self.conn.commit()
+            self.truncate_table(table_name, True)
 
         csv_files = [f for f in os.listdir(csv_path) if f.endswith('.txt') and f[0:10] >= start_date]
         csv_files.sort()
@@ -132,18 +158,13 @@ class DataDB:
         :return: None
         """
 
-        years = ['1995', '1996', '1997', '1998', '1999', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007',
-                 '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018']
-
-        years_to_load = [year for year in years if year >= start_year]
+        years_to_load = [year for year in self.YEARS if year >= start_year]
 
         c = self.conn.cursor()
 
         print('Truncating tables')
         for year in years_to_load:
-            truncate_query = '''DELETE FROM tblDump{}'''.format(year)
-            c.execute(truncate_query)
-            self.conn.commit()
+            self.truncate_table('tblDump{}'.format(year))
 
         csv_files = [f for f in os.listdir(csv_path) if f.endswith('.txt') and f[0:4] >= start_year]
         csv_files.sort()
@@ -194,6 +215,40 @@ class DataDB:
 
         print('{} files processed, {} records read, {} records inserted, {} records duplicate, {} records skipped'.format(
             len(csv_files), read_count, write_count, len(duplicate_records.index), len(skipped_records.index)))
+
+    def fetch_records(self, tables, symbols, start_date, end_date):
+        """
+        Fetch records from tblDumps or tblModDumps for given parameters
+        :param tables: 'tblDump' or 'tblModDump'
+        :param symbols: [symbol1, symbol2, ...]
+        :param start_date: 'YYYY-MM-DD'
+        :param end_date: 'YYYY-MM-DD'
+        :return: pandas dataframe with selected records
+        """
+
+        years = [year for year in self.YEARS if start_date[0:4] <= year <= end_date[0:4]]
+        symbols_tuple = "('{}')".format(symbols[0]) if len(symbols) == 1 else str(tuple(symbols))
+
+        if len(years) == 1:
+            qry = """SELECT * FROM {}{} WHERE Symbol IN {} AND Date BETWEEN '{}' AND '{}'
+                      ORDER BY Symbol ASC, Date ASC""".format(tables, years[0], symbols_tuple, start_date, end_date)
+        else:
+            qry_strings = []
+            for i in range(0, len(years)):
+                if i == 0:
+                    qry_str = "SELECT * FROM {}{} WHERE Symbol IN {} AND Date >= '{}'".format(tables, years[i],
+                                                                                              symbols_tuple, start_date)
+                elif i == len(years) - 1:
+                    qry_str = "SELECT * FROM {}{} WHERE Symbol IN {} AND Date <= '{}'".format(tables, years[i],
+                                                                                              symbols_tuple, end_date)
+                else:
+                    qry_str = 'SELECT * FROM {}{} WHERE Symbol IN {}'.format(tables, years[i], symbols_tuple)
+
+                qry_strings.append(qry_str)
+
+            qry = '{} ORDER BY Symbol ASC, Date ASC'.format(' UNION '.join(qry_strings))
+
+        return pd.read_sql_query(qry, self.conn)
 
     def int(self, val):
         try:
@@ -275,3 +330,100 @@ class DataDB:
         replaceable_selected_records.to_csv(self.REPLACEBLE_SELECTED_RECORDS, sep=',', index=False)
         replaceable_skipped_records.to_csv(self.REPLACEBLE_SKIPPED_RECORDS, sep=',', index=False)
 
+    def load_dump_replace_records(self):
+
+        c = self.conn.cursor()
+
+        replaceable_selected_records = pd.read_csv(self.REPLACEBLE_SELECTED_RECORDS)
+        replaceable_skipped_records = pd.read_csv(self.REPLACEBLE_SKIPPED_RECORDS)
+
+        for i in range(0, len(replaceable_selected_records.index)):
+            sel_record = replaceable_selected_records.iloc[i:i+1, :]
+            skipped_record = replaceable_skipped_records.iloc[i:i + 1, :]
+            #print(skipped_record)
+            insert_row = (skipped_record['Symbol'].iloc[0], str(skipped_record['Date'].iloc[0]),
+                          skipped_record['Open'].iloc[0], skipped_record['High'].iloc[0], skipped_record['Low'].iloc[0],
+                          skipped_record['Close'].iloc[0], int(skipped_record['Volume'].iloc[0]))
+            #print(insert_row)
+
+            if sel_record['Symbol'].iloc[0] == skipped_record['Symbol'].iloc[0] and \
+                sel_record['Date'].iloc[0] == skipped_record['Date'].iloc[0]:
+                try:
+                    c.execute('''INSERT INTO tblDumpReplace VALUES (?,?,?,?,?,?,?)''', insert_row)
+                    print(insert_row, "inserted")
+                except sqlite3.IntegrityError:
+                    print(insert_row, "insert failed")
+            else:
+                print(insert_row, "skipped")
+
+        self.conn.commit()
+        c.close()
+
+    def save_symbols_date_range(self, append_from='1995'):
+        """
+        Save all symbols start and end dates in csv file
+        :param append_from: start year for appending
+        :return:
+        """
+
+        exist_symbols_range = pd.read_sql_query('''SELECT * FROM tblSymbolRange''', self.conn)
+        self.truncate_table('tblSymbolRange', True)
+
+        years = [year for year in self.YEARS if year >= append_from]
+
+        qry_strings = []
+        for year in years:
+            #qry_strings.append("SELECT Symbol, Date FROM tblModDump{}".format(year))
+            qry_strings.append("SELECT Symbol, MIN(Date) MinDate, MAX(Date) MaxDate "
+                               "FROM tblModDump{} GROUP BY Symbol".format(year))
+
+        qry = """SELECT Symbol, MIN(MinDate) StartDate, MAX(MaxDate) EndDate FROM ({}) GROUP BY Symbol""".format(
+            ' UNION '.join(qry_strings))
+        new_symbols_range = pd.read_sql_query(qry, self.conn)
+
+        symbols_range = pd.concat([exist_symbols_range, new_symbols_range], axis=0)
+        self.insert_records(symbols_range, 'tblSymbolRange')
+
+        if len(new_symbols_range.index) > 0:
+            print('Adjusting for existing records')
+            qry = 'SELECT Symbol, MIN(StartDate) StartDate, MAX(EndDate) EndDate FROM tblSymbolRange GROUP BY Symbol'
+            final_recs = pd.read_sql_query(qry, self.conn)
+            self.truncate_table('tblSymbolRange', True)
+            self.insert_records(final_recs, 'tblSymbolRange')
+
+    def load_modified_tbldumps(self, start_year='1995', end_year='2018'):
+        """
+        Load tblModDumps from tblDumps with symbol changes and corrected records
+        :param start_year: start year from which tables need to be updated
+        :return: None
+        """
+
+        symbol_change_records = pd.read_csv(self.SYMBOL_CHANGE_FILE)
+        symbol_changes = dict(zip(symbol_change_records.Old, symbol_change_records.New))
+
+        years_to_load = [year for year in self.YEARS if start_year <= year <= end_year]
+
+        c = self.conn.cursor()
+
+        print('Truncating tables')
+        for year in years_to_load:
+            self.truncate_table('tblModDump{}'.format(year))
+
+        df_duplicate = pd.DataFrame()
+        for year in years_to_load:
+            print('updating for year', year)
+            df = pd.read_sql_query('''SELECT * FROM tblDump{}'''.format(year), self.conn)
+            df_replace = pd.read_sql_query('''SELECT * FROM tblDumpReplace WHERE Date LIKE "{}%"'''.format(year),
+                                           self.conn)
+            for symbol in symbol_changes.keys():
+                df['Symbol'] = np.where(df.Symbol == symbol, symbol_changes[symbol], df.Symbol)
+                df_replace['Symbol'] = np.where(df_replace.Symbol == symbol, symbol_changes[symbol], df_replace.Symbol)
+            df = pd.concat([df_replace, df], axis=0)
+            df_unique = df.drop_duplicates(['Symbol', 'Date'], keep='first')
+            self.insert_records(df_unique, 'tblModDump{}'.format(year))
+            df_duplicate = pd.concat([df_duplicate, df[df.duplicated(['Symbol', 'Date'], keep='first')]], axis=0)
+
+        if len(df_duplicate.index) > 0:
+            df_duplicate.to_csv(self.SYMBOL_CHANGE_DUPLICATES_FILE, sep=',', index=False)
+
+        c.close()
