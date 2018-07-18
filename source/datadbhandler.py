@@ -11,6 +11,7 @@ import numpy as np
 import sqlite3
 from sqlalchemy import create_engine
 from collections import OrderedDict
+import openpyxl as xl
 
 
 class DataDB:
@@ -25,13 +26,15 @@ class DataDB:
     BONUS_SPLITS_FILE = '{}bonus_splits.csv'.format(MOD_PATH)
     SYMBOL_CHANGE_FILE = '{}symbol_change.csv'.format(MOD_PATH)
     MULTIPLIERS_FILE = '{}multipliers.csv'.format(MOD_PATH)
-    #SYMBOLS_DATE_RANGE_FILE = '{}symbols_date_range.csv'.format(MOD_PATH)
+    MULTIPLIER_SKIPS_FILE = '{}multipliers_skips.csv'.format(MOD_PATH)
+    INDEX_CHANGE_DUMP_XL = '{}IndexInclExcl.xlsx'.format(MOD_PATH)
+    INDEX_CHANGE_DUMP_CSV = '{}IndexInclExcl.csv'.format(MOD_PATH)
+    INDEX_CHANGE_CSV = '{}index_inc_exc.csv'.format(MOD_PATH)
     SYMBOL_CHANGE_DUPLICATES_FILE = '{}symbol_change_duplicates.csv'.format(MOD_PATH)
     UNVERIFIED_SKIPPED_RECORDS_FILE = '{}unverified_skipped_records.csv'.format(MOD_PATH)
     UNVERIFIED_SELECTED_RECORDS_FILE = '{}unverified_selected_records.csv'.format(MOD_PATH)
     REPLACEBLE_SELECTED_RECORDS = '{}replaceble_selected_records.csv'.format(MOD_PATH)
     REPLACEBLE_SKIPPED_RECORDS = '{}replaceble_skipped_records.csv'.format(MOD_PATH)
-
 
     def __init__(self, db, type='EQ'):
 
@@ -77,15 +80,32 @@ class DataDB:
         for symbol in symbol_changes.keys():
             multipliers['Symbol'] = np.where(multipliers.Symbol == symbol, symbol_changes[symbol], multipliers.Symbol)
 
+        symbol_range_records = pd.read_sql('SELECT Symbol, StartDate FROM tblSymbolRange', self.conn)
+        symbol_start_dates = dict(zip(symbol_range_records.Symbol, symbol_range_records.StartDate))
+        #print(symbol_start_dates)
+
         c = self.conn.cursor()
+        df_skips = pd.DataFrame()
         for symbol in multipliers['Symbol'].unique():
             print('processing', symbol)
-            df = multipliers[multipliers.Symbol == symbol].copy()
-            df['ResultantMultiplier'] = df['Multiplier'].cumprod()
-            insert_rows = df.values.tolist()
-            c.executemany('INSERT INTO tblMultipliers VALUES (?, ?, ?, ?)', insert_rows)
-            self.conn.commit()
+            if symbol in symbol_start_dates:
+                df = multipliers[(multipliers.Symbol == symbol) &
+                             (multipliers.Date >= int(symbol_start_dates[symbol]))].copy()
+                df['ResultantMultiplier'] = df['Multiplier'].cumprod()
+                insert_rows = df.values.tolist()
+                c.executemany('INSERT INTO tblMultipliers VALUES (?, ?, ?, ?)', insert_rows)
+                self.conn.commit()
+                df_skip = multipliers[(multipliers.Symbol == symbol) &
+                                  (multipliers.Date < int(symbol_start_dates[symbol]))].copy()
+                df_skips = pd.concat([df_skips, df_skip], axis=0)
+            else:
+                df_skip = multipliers[multipliers.Symbol == symbol].copy()
+                df_skips = pd.concat([df_skips, df_skip], axis=0)
+
         c.close()
+
+        df_skips.to_csv(self.MULTIPLIER_SKIPS_FILE, sep=',', index=False)
+
 
     def insert_records(self, df, table_name):
         """
@@ -216,13 +236,13 @@ class DataDB:
         print('{} files processed, {} records read, {} records inserted, {} records duplicate, {} records skipped'.format(
             len(csv_files), read_count, write_count, len(duplicate_records.index), len(skipped_records.index)))
 
-    def fetch_records(self, tables, symbols, start_date, end_date):
+    def fetch_records(self, tables, symbols, start_date='19000101', end_date='21001231'):
         """
         Fetch records from tblDumps or tblModDumps for given parameters
         :param tables: 'tblDump' or 'tblModDump'
         :param symbols: [symbol1, symbol2, ...]
-        :param start_date: 'YYYY-MM-DD'
-        :param end_date: 'YYYY-MM-DD'
+        :param start_date: 'YYYYMMDD'
+        :param end_date: 'YYYYMMDD'
         :return: pandas dataframe with selected records
         """
 
@@ -332,6 +352,8 @@ class DataDB:
 
     def load_dump_replace_records(self):
 
+        self.truncate_table('tblDumpReplace', True)
+
         c = self.conn.cursor()
 
         replaceable_selected_records = pd.read_csv(self.REPLACEBLE_SELECTED_RECORDS)
@@ -371,22 +393,29 @@ class DataDB:
 
         years = [year for year in self.YEARS if year >= append_from]
 
-        qry_strings = []
+        qry_strings_dump, qry_strings_mod = [], []
         for year in years:
-            #qry_strings.append("SELECT Symbol, Date FROM tblModDump{}".format(year))
-            qry_strings.append("SELECT Symbol, MIN(Date) MinDate, MAX(Date) MaxDate "
-                               "FROM tblModDump{} GROUP BY Symbol".format(year))
+            qry_strings_dump.append("SELECT Symbol, 'Dump' TableSource, MIN(Date) MinDate, MAX(Date) MaxDate "
+                                    "FROM tblDump{} GROUP BY Symbol".format(year))
+            qry_strings_mod.append("SELECT Symbol, 'ModDump' TableSource, MIN(Date) MinDate, MAX(Date) MaxDate "
+                                   "FROM tblModDump{} GROUP BY Symbol".format(year))
 
-        qry = """SELECT Symbol, MIN(MinDate) StartDate, MAX(MaxDate) EndDate FROM ({}) GROUP BY Symbol""".format(
-            ' UNION '.join(qry_strings))
-        new_symbols_range = pd.read_sql_query(qry, self.conn)
+        qry_dump = """SELECT Symbol, 'Dump' TableSource, MIN(MinDate) StartDate, MAX(MaxDate) EndDate FROM ({})
+         GROUP BY Symbol""".format(' UNION '.join(qry_strings_dump))
+        new_symbols_range_dump = pd.read_sql_query(qry_dump, self.conn)
 
+        qry_mod = """SELECT Symbol, 'ModDump' TableSource, MIN(MinDate) StartDate, MAX(MaxDate) EndDate FROM ({})
+         GROUP BY Symbol""".format(' UNION '.join(qry_strings_mod))
+        new_symbols_range_mod = pd.read_sql_query(qry_mod, self.conn)
+
+        new_symbols_range = pd.concat([new_symbols_range_dump, new_symbols_range_mod], axis=0)
         symbols_range = pd.concat([exist_symbols_range, new_symbols_range], axis=0)
         self.insert_records(symbols_range, 'tblSymbolRange')
 
         if len(new_symbols_range.index) > 0:
             print('Adjusting for existing records')
-            qry = 'SELECT Symbol, MIN(StartDate) StartDate, MAX(EndDate) EndDate FROM tblSymbolRange GROUP BY Symbol'
+            qry = 'SELECT Symbol, TableSource, MIN(StartDate) StartDate, MAX(EndDate) EndDate FROM tblSymbolRange ' \
+                  'GROUP BY Symbol, TableSource'
             final_recs = pd.read_sql_query(qry, self.conn)
             self.truncate_table('tblSymbolRange', True)
             self.insert_records(final_recs, 'tblSymbolRange')
@@ -419,7 +448,11 @@ class DataDB:
                 df['Symbol'] = np.where(df.Symbol == symbol, symbol_changes[symbol], df.Symbol)
                 df_replace['Symbol'] = np.where(df_replace.Symbol == symbol, symbol_changes[symbol], df_replace.Symbol)
             df = pd.concat([df_replace, df], axis=0)
-            df_unique = df.drop_duplicates(['Symbol', 'Date'], keep='first')
+            df_unique = df.drop_duplicates(['Symbol', 'Date'], keep='first').copy()
+            df_unique['AdjustedOpen'] = np.nan
+            df_unique['AdjustedHigh'] = np.nan
+            df_unique['AdjustedLow'] = np.nan
+            df_unique['AdjustedClose'] = np.nan
             self.insert_records(df_unique, 'tblModDump{}'.format(year))
             df_duplicate = pd.concat([df_duplicate, df[df.duplicated(['Symbol', 'Date'], keep='first')]], axis=0)
 
@@ -427,3 +460,185 @@ class DataDB:
             df_duplicate.to_csv(self.SYMBOL_CHANGE_DUPLICATES_FILE, sep=',', index=False)
 
         c.close()
+
+    def update_records(self, df, tables='tblModDump'):
+        """
+        Update passed records into table_name
+        """
+
+        c = self.conn.cursor()
+
+        symbol = df.iloc[0]['Symbol']
+        start_date = df.iloc[0]['Date']
+        years = [year for year in self.YEARS if year >= start_date[0:4]]
+
+        for year in years:
+            if year == start_date[0:4]:
+                delete_qry = '''DELETE FROM {}{} WHERE Symbol = "{}" AND Date >= "{}"'''.format(tables, year, symbol,
+                                                                                                start_date)
+            else:
+                delete_qry = '''DELETE FROM {}{} WHERE Symbol = "{}"'''.format(tables, year, symbol)
+            c.execute(delete_qry)
+            df_year = df[(df.Date >= '{}0101'.format(year)) & (df.Date <= '{}1231'.format(year))]
+            c.executemany('INSERT INTO {}{} VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'.format(tables, year),
+                          df_year.values.tolist())
+            self.conn.commit()
+
+
+
+        #df.to_sql(table_name, self.engine, index=False, if_exists='append')
+
+    def update_adjusted_price(self, start_date='19000101'):
+
+        multipliers_qry = '''SELECT * FROM tblMultipliers WHERE Date >= "{}" ORDER BY Symbol, Date'''.format(start_date)
+        multipliers = pd.read_sql_query(multipliers_qry, self.conn)
+
+        #print(multipliers)
+        #symbols_list = ["20MICRONS", "AARTIDRUGS", "AARTIIND"]
+
+        c = self.conn.cursor()
+
+        for symbol in multipliers['Symbol'].unique():
+        #for symbol in symbols_list:
+            symbol_multipliers = multipliers[multipliers.Symbol == symbol]
+            symbol_records = self.fetch_records('tblModDump', [symbol], start_date=symbol_multipliers.iloc[0]['Date'])
+            symbol_records_update = pd.DataFrame()
+            for idx, row in symbol_multipliers.iterrows():
+                #print(row)
+                if len(symbol_records_update) > 0:
+                    symbol_records_update = symbol_records_update[symbol_records_update.Date < row['Date']]
+                temp_records = symbol_records[symbol_records.Date >= row['Date']].copy()
+                temp_records['AdjustedOpen'] = temp_records['Open'] * row['ResultantMultiplier']
+                temp_records['AdjustedHigh'] = temp_records['High'] * row['ResultantMultiplier']
+                temp_records['AdjustedLow'] = temp_records['Low'] * row['ResultantMultiplier']
+                temp_records['AdjustedClose'] = temp_records['Close'] * row['ResultantMultiplier']
+                symbol_records_update = pd.concat([symbol_records_update, temp_records], axis=0)
+            if len(symbol_records_update) > 0:
+                first_date = symbol_records_update.iloc[0]['Date']
+                delete_qry = '''DELETE FROM tblModDump{} WHERE Symbol = "{}" AND Date >= "{}"'''.format(first_date[0:4],
+                                                                                                        symbol,
+                                                                                                        first_date)
+                c.execute(delete_qry)
+                self.conn.commit()
+                self.update_records(symbol_records_update)
+                print('update complete for', symbol)
+            else:
+                print('update skipped for', symbol)
+
+        c.close()
+
+    def index_change_xl_to_csv(self):
+
+        wb_idx = xl.load_workbook(self.INDEX_CHANGE_DUMP_XL)
+
+        sheets = wb_idx.sheetnames
+
+        #idx_records = pd.DataFrame('Index', 'Date', 'SymbolName', 'ChangeType')
+        cols = ['Index', 'Date', 'SymbolName', 'ChangeType']
+        records = []
+
+        for sheet in sheets:
+            sheet_name = wb_idx[sheet]
+            for row in range(2, sheet_name.max_row + 1):
+                records.append([sheet_name['A' + str(row)].value,
+                                sheet_name['B' + str(row)].value,
+                                sheet_name['C' + str(row)].value,
+                                sheet_name['D' + str(row)].value])
+
+        df = pd.DataFrame(records, columns=cols)
+        df.to_csv(self.INDEX_CHANGE_DUMP_CSV, sep=',', index=False)
+
+    def check_symbol_dates_old(self):
+
+        df = pd.read_csv(self.INDEX_CHANGE_CSV)
+
+        for idx, row in df.iterrows():
+            qry = 'SELECT * FROM tblModDump{} WHERE Symbol = "{}" AND Date = "{}"'.format(str(row['Date'])[0:4],
+                                                                                          row['Symbol'], row['Date'])
+            record = pd.read_sql_query(qry, self.conn)
+
+            if len(record.index) == 0:
+                qry = 'SELECT * FROM tblDump{} WHERE Symbol = "{}" AND Date = "{}"'.format(str(row['Date'])[0:4],
+                                                                                           row['Symbol'],
+                                                                                           row['Date'])
+                record = pd.read_sql_query(qry, self.conn)
+                if len(record.index) > 0:
+                    print(row['Symbol'], row['Date'], 'found in tblDump')
+                else:
+                    qry_prev = '''SELECT * FROM tblModDump{} WHERE Symbol = "{}" AND Date < "{}"
+                                   LIMIT 1'''.format(str(row['Date'])[0:4], row['Symbol'], row['Date'])
+                    record_prev = pd.read_sql_query(qry_prev, self.conn)
+                    qry_next = '''SELECT * FROM tblModDump{} WHERE Symbol = "{}" AND Date > "{}"
+                                                       LIMIT 1'''.format(str(row['Date'])[0:4], row['Symbol'],
+                                                                         row['Date'])
+                    record_next = pd.read_sql_query(qry_next, self.conn)
+                    if len(record_prev.index) == 0 and len(record_next.index) == 0:
+                        qry_prev = '''SELECT * FROM tblDump{} WHERE Symbol = "{}" AND Date < "{}"
+                                                           LIMIT 1'''.format(str(row['Date'])[0:4], row['Symbol'],
+                                                                             row['Date'])
+                        record_prev = pd.read_sql_query(qry_prev, self.conn)
+                        qry_next = '''SELECT * FROM tblDump{} WHERE Symbol = "{}" AND Date > "{}"
+                                                                               LIMIT 1'''.format(str(row['Date'])[0:4],
+                                                                                                 row['Symbol'],
+                                                                                                 row['Date'])
+                        record_next = pd.read_sql_query(qry_next, self.conn)
+                        if len(record_prev.index) == 0 and len(record_next.index) == 0:
+                            print(row['Symbol'], row['Date'], 'not found')
+                        else:
+                            if len(record_prev.index) > 0:
+                                print(row['Symbol'], row['Date'], 'tblDump', 'prev', record_prev['Date'][0])
+                            if len(record_next.index) > 0:
+                                print(row['Symbol'], row['Date'], 'tblDump', 'next', record_next['Date'][0])
+                    else:
+                        if len(record_prev.index) > 0:
+                            print(row['Symbol'], row['Date'], 'tblModDump', 'prev', record_prev['Date'][0])
+                        if len(record_next.index) > 0:
+                            print(row['Symbol'], row['Date'], 'tblModDump', 'next', record_next['Date'][0])
+
+    def check_symbol_dates(self):
+
+        df = pd.read_csv(self.INDEX_CHANGE_CSV)
+        range_d = pd.read_csv('nse_eod_modifiers/symbol_range.csv')
+        range_mod = pd.read_csv('nse_eod_modifiers/symbol_range_mod.csv')
+
+        for idx, row in df.iterrows():
+            s_range_mod = range_mod[range_mod.Symbol == row['Symbol']]
+            s_range = range_d[range_d.Symbol == row['Symbol']]
+            if not s_range_mod.empty:
+                if s_range_mod.iloc[0]['StartDate'] < row['Date'] < s_range_mod.iloc[0]['EndDate']:
+                    print('{},found in tblMod within range,{},{},{}'.format(row['Symbol'], row['Date'],
+                                                                            s_range_mod.iloc[0]['StartDate'],
+                                                                            s_range_mod.iloc[0]['EndDate']))
+                else:
+                    if not s_range.empty:
+                        if s_range.iloc[0]['StartDate'] < row['Date'] < s_range.iloc[0]['EndDate']:
+                            print('{},found in tblDump within range,{},{},{}'.format(row['Symbol'], row['Date'],
+                                                                                     s_range.iloc[0]['StartDate'],
+                                                                                     s_range.iloc[0]['EndDate']))
+                        else:
+                            print('{},found in tblMod outside range,{},{},{}'.format(row['Symbol'], row['Date'],
+                                                                                     s_range_mod.iloc[0]['StartDate'],
+                                                                                     s_range_mod.iloc[0]['EndDate']))
+            else:
+                if not s_range.empty:
+                    if s_range.iloc[0]['StartDate'] < row['Date'] < s_range.iloc[0]['EndDate']:
+                        print('{},found in tblDump within range,{},{},{}'.format(row['Symbol'], row['Date'],
+                                                                                 s_range.iloc[0]['StartDate'],
+                                                                                 s_range.iloc[0]['EndDate']))
+                    else:
+                        print('{},found in tblDump outside range,{},{},{}'.format(row['Symbol'], row['Date'],
+                                                                                  s_range.iloc[0]['StartDate'],
+                                                                                  s_range.iloc[0]['EndDate']))
+                else:
+                    print('{},{},not found'.format(row['Symbol'], row['Date']))
+
+
+
+
+
+
+
+
+
+
+
