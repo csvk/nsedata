@@ -29,12 +29,53 @@ class DataDB:
     MULTIPLIER_SKIPS_FILE = '{}multipliers_skips.csv'.format(MOD_PATH)
     INDEX_CHANGE_DUMP_XL = '{}IndexInclExcl.xlsx'.format(MOD_PATH)
     INDEX_CHANGE_DUMP_CSV = '{}IndexInclExcl.csv'.format(MOD_PATH)
+    INDEX_CHANGE_MOD_CSV = '{}IndexInclExclMod.csv'.format(MOD_PATH)
+    INDEX_CHANGE_MOD_TEST_CSV = '{}IndexInclExclModTest.csv'.format(MOD_PATH)
+    INDEX_COMPONENTS_CURR = '{}index_components_curr.csv'.format(MOD_PATH)
     INDEX_CHANGE_CSV = '{}index_inc_exc.csv'.format(MOD_PATH)
     SYMBOL_CHANGE_DUPLICATES_FILE = '{}symbol_change_duplicates.csv'.format(MOD_PATH)
     UNVERIFIED_SKIPPED_RECORDS_FILE = '{}unverified_skipped_records.csv'.format(MOD_PATH)
     UNVERIFIED_SELECTED_RECORDS_FILE = '{}unverified_selected_records.csv'.format(MOD_PATH)
     REPLACEBLE_SELECTED_RECORDS = '{}replaceble_selected_records.csv'.format(MOD_PATH)
     REPLACEBLE_SKIPPED_RECORDS = '{}replaceble_skipped_records.csv'.format(MOD_PATH)
+
+    NIFTY_INDICES = {
+        'NIFTY LargeMidcap 250': 'NIFTY_LARGEMIDCAP_250',
+        'NIFTY Midcap 100': 'NIFTY_MIDCAP_100',
+        'NIFTY Smallcap 100': 'NIFTY_SMALLCAP_100',
+        'Nifty 100': 'NIFTY_100',
+        'Nifty 200': 'NIFTY_200',
+        'Nifty 50': 'NIFTY_50',
+        'Nifty 500': 'NIFTY_500',
+        'Nifty Alpha 50': 'NIFTY_ALPHA_50',
+        'Nifty Auto': 'NIFTY_AUTO',
+        'Nifty Bank': 'NIFTY_BANK',
+        'Nifty Commodities': 'NIFTY_COMMODITIES',
+        'Nifty Dividend Opportunities 50': 'NIFTY_DIVIDEND_OPPORTUNITIES_50',
+        'Nifty Energy': 'NIFTY_ENERGY',
+        'Nifty FMCG': 'NIFTY_FMCG',
+        'Nifty Financial Services': 'NIFTY_FINANCIAL_SERVICES',
+        'Nifty Growth Sectors 15': 'NIFTY_GROWTH_SECTORS_15',
+        'Nifty High Beta 50': 'NIFTY_HIGH_BETA_50',
+        'Nifty IT': 'NIFTY_IT',
+        'Nifty India Consumption': 'NIFTY_INDIA_CONSUMPTION',
+        'Nifty Infrastructure': 'NIFTY_INFRASTRUCTURE',
+        'Nifty Low Volatility 50': 'NIFTY_LOW_VOLATILITY_50',
+        'Nifty MNC': 'NIFTY_MNC',
+        'Nifty Media': 'NIFTY_MEDIA',
+        'Nifty Metal': 'NIFTY_METAL',
+        'Nifty Midcap 50': 'NIFTY_MIDCAP_50',
+        'Nifty Midcap Liquid 15': 'NIFTY_MIDCAP_LIQUID_15',
+        'Nifty Next 50': 'NIFTY_NEXT_50',
+        'Nifty PSE': 'NIFTY_PSE',
+        'Nifty PSU Bank': 'NIFTY_PSU_BANK',
+        'Nifty Pharma': 'NIFTY_PHARMA',
+        'Nifty Realty': 'NIFTY_REALTY',
+        'Nifty Services Sector': 'NIFTY_SERVICES_SECTOR',
+        'Nifty100 Liquid 15': 'NIFTY100_LIQUID_15',
+        'Nifty50 Value 20': 'NIFTY50_VALUE_20',
+    }
+
 
     def __init__(self, db, type='EQ'):
 
@@ -631,6 +672,419 @@ class DataDB:
                                                                                   s_range.iloc[0]['EndDate']))
                 else:
                     print('{},{},not found'.format(row['Symbol'], row['Date']))
+
+    def load_historical_index_components(self):
+
+        c = self.conn.cursor()
+
+        self.truncate_table('tblHistIndex', True)
+
+        idx_change_hist = pd.read_csv(self.INDEX_CHANGE_MOD_CSV)
+        idx_components_curr = pd.read_csv(self.INDEX_COMPONENTS_CURR)
+
+        for index in idx_components_curr['Index'].unique():
+        #for index in ['Nifty 500']:
+            print('Loading for', index)
+            index_hist = idx_change_hist[idx_change_hist.Index == index].copy()
+            #print(index_hist)
+            change_dates = list(index_hist['Date'].unique())
+            change_dates.sort(reverse=True)
+            #print(change_dates)
+            curr_symbol_recs = idx_components_curr[idx_components_curr.Index == index].copy()
+
+            first = True
+            insert_symbols = set()
+            for change_date in change_dates:
+                #print(idx_change_hist)
+                excluded_symbols = index_hist[(index_hist.Date == change_date) &
+                                              (index_hist.ChangeType == 'E')]['Symbol'].tolist()
+                included_symbols = index_hist[(index_hist.Date == change_date) &
+                                              (index_hist.ChangeType == 'I')]['Symbol'].tolist()
+                #print(change_date, '.......')
+                #print('excluded symbols', 'SEARCHEMIN' if 'SEARCHEMIN' in excluded_symbols else 'Missing')
+                #print('included symbols', 'SEARCHEMIN' if 'SEARCHEMIN' in included_symbols else 'Missing')
+                #print('excluded #############################')
+                #for symbol in excluded_symbols:
+                #    print(symbol)
+                #print('included #############################')
+                #for symbol in included_symbols:
+                #    print(symbol)
+
+                if first:
+                    curr_symbols = curr_symbol_recs['Symbol'].tolist()
+                    curr_dates = [change_date] * len(curr_symbols)
+                    curr_index = [index] * len(curr_symbols)
+                    curr_df = pd.DataFrame(np.column_stack([curr_index, curr_symbols, curr_dates]),
+                                           columns=['Index', 'Symbol', 'Date'])
+                    insert_rows = curr_df.values.tolist()
+                    #print('first inserted symbols', 'SEARCHEMIN' if 'SEARCHEMIN' in curr_symbols else 'Missing')
+                    c.executemany('INSERT INTO tblHistIndex VALUES (?, ?, ?)', insert_rows)
+                    insert_symbols = list(set(curr_symbols).union(set(excluded_symbols)) - set(included_symbols))
+                    first = False
+                else:
+                    insert_symbols = list(set(insert_symbols).union(set(included_symbols)) - set(excluded_symbols))
+                    insert_dates = [change_date] * len(insert_symbols)
+                    insert_index = [index] * len(insert_symbols)
+                    insert_df = pd.DataFrame(np.column_stack([insert_index, insert_symbols, insert_dates]),
+                                             columns=['Index', 'Symbol', 'Date'])
+                    insert_rows = insert_df.values.tolist()
+                    #print('inserted symbols', 'SEARCHEMIN' if 'SEARCHEMIN' in insert_symbols else 'Missing')
+                    c.executemany('INSERT INTO tblHistIndex VALUES (?, ?, ?)', insert_rows)
+                    insert_symbols = list(set(insert_symbols).union(excluded_symbols) - set(included_symbols))
+
+        self.conn.commit()
+        c.close()
+
+    def symbols_index_hist_files(self, indices='default', start_year='1995', end_year='2100'):
+
+        if indices == 'default':
+            indices = (
+                'NIFTY LargeMidcap 250',
+                'NIFTY Midcap 100',
+                'NIFTY Smallcap 100',
+                'Nifty 100',
+                'Nifty 200',
+                'Nifty 50',
+                'Nifty 500',
+                'Nifty Alpha 50',
+                'Nifty High Beta 50',
+                'Nifty Low Volatility 50',
+                'Nifty Midcap 50',
+                'Nifty Midcap Liquid 15',
+                'Nifty Next 50',
+                'Nifty100 Liquid 15',
+            )
+            #indices = ('Nifty 50', 'Nifty 100')
+
+        years = [year for year in self.YEARS if start_year <= year <= end_year]
+
+        c = self.conn.cursor()
+
+        #qry = 'SELECT * FROM tblHistIndex WHERE IndexName in {} AND Date >= "{}"' \
+        #      'ORDER BY IndexName ASC, Date ASC'.format(str(indices), prev_yr_last_date)
+        #index_hist = pd.read_sql(qry, self.conn)
+
+        #index_hist_first = index_hist.drop_duplicates(['IndexName'], keep='first')
+        #first_dates = dict(zip(index_hist_first['IndexName'], index_hist_first['Date']))
+
+        print('Loading Index History...')
+        qry = """SELECT t1. * 
+                   FROM tblHistIndex t1
+                   JOIN (SELECT IndexName, Min(Date) FirstDate
+                           FROM (SELECT DISTINCT IndexName, Max(Date) Date
+                                   FROM tblHistIndex
+                                  WHERE Date < '{}0101'
+                                  GROUP BY IndexName
+                                  UNION
+                                 SELECT DISTINCT IndexName, Min(Date) Date
+                                   FROM tblHistIndex
+                                  WHERE Date >= '{}0101'
+                                  GROUP BY IndexName)
+                          GROUP BY IndexName) t2
+                  WHERE t1.IndexName = t2.IndexName
+                    AND t1.Date >= t2.FirstDate
+                    AND t2.IndexName in {}
+                  ORDER BY IndexName ASC, Date ASC""".format(start_year, start_year, str(indices))
+
+        index_hist = pd.read_sql(qry, self.conn)
+        index_hist_first = index_hist.drop_duplicates(['IndexName'], keep='first')
+        first_dates = dict(zip(index_hist_first['IndexName'], index_hist_first['Date']))
+        prev_dates = first_dates
+
+        #symbols_for_next_year = {}
+        #first, prev_date = True, '19000101'
+        #for year in ['1996', '1997', '1998']:
+
+
+        #prev_dates = first_dates
+        for year in years:
+            print('Processing {}...'.format(year))
+
+            qry_yr = 'SELECT Symbol, Date FROM tblModDump{}'.format(year)
+            yr_records = pd.read_sql(qry_yr, self.conn)
+            yr_records['Date'] = pd.to_numeric(yr_records['Date'])
+            for index in index_hist['IndexName'].unique():
+                #if index not in prev_dates:
+                #    prev_dates[index] = '19000101'
+                print('Processing {} {}...'.format(year, index))
+                yr_records[index] = [0] * yr_records['Symbol'].size
+                index_hist_curr = index_hist[(index_hist.IndexName == index) &
+                                             (index_hist.Date >= prev_dates[index])].copy()
+                #(index_hist.Date >= '{}0101'.format(year))].copy()
+                #print(list(index_hist_curr['Date'].unique()))
+                in_scope_dates = [d for d in list(index_hist_curr['Date'].unique()) if int(d[0:4]) == int(year)]
+                #print(in_scope_dates)
+                #for date in index_hist_curr['Date'].unique():
+                for date in in_scope_dates:
+                    #if int(date[0:4]) != int(year) and int(prev_dates[index][0:4]) != int(year):
+                    #    continue
+                    #if condition change change to use first_date
+                    #if int(year) <= int(first_dates[index][0:4]):
+                    #    continue
+                    print('................ Processing {}... prev date {}'.format(date, prev_dates[index]))
+
+                    index_hist_prev_date = index_hist_curr[index_hist_curr.Date == prev_dates[index]].copy()
+                    for symbol in index_hist_prev_date['Symbol'].unique():
+                        #print(symbol, prev_dates[index])
+                        yr_records.loc[(yr_records.Symbol == symbol) & (yr_records.Date >= int(prev_dates[index])) &
+                                       (yr_records.Date < int(date)), index] = 1
+                    prev_dates[index] = date
+                #if int(date[0:4]) != int(year) and int(prev_dates[index][0:4]) != int(year):
+                if prev_dates[index][0:4] != year:
+                    #print('Skipped {}...'.format(prev_dates[index]))
+                    #prev_dates[index] = date
+                    continue
+                #if year <= first_dates[index][0:4]:
+                #    continue
+                print('................ Processing {}...'.format(prev_dates[index]))
+                index_hist_prev_date = index_hist_curr[index_hist_curr.Date == prev_dates[index]].copy()
+                for symbol in index_hist_prev_date['Symbol'].unique():
+                    #print(symbol, prev_dates[index])
+                    yr_records.loc[(yr_records.Symbol == symbol) &
+                                   (yr_records.Date >= int(prev_dates[index])), index] = 1
+                #prev_dates[index] = date
+
+            yr_records.to_csv('{}{}.csv'.format(self.MOD_PATH, year), sep=',', index=False)
+
+        c.close()
+
+    def test_inc_exc_mod_list(self):
+
+        idx_change_hist = pd.read_csv(self.INDEX_CHANGE_MOD_CSV)
+        idx_components_curr = pd.read_csv(self.INDEX_COMPONENTS_CURR)
+
+        idx_change_hist_last = idx_change_hist.drop_duplicates(['Index', 'Symbol'], keep='first')
+
+        idx_change_hist_last.to_csv('{}IndexInclExclModTestLast.csv'.format(self.MOD_PATH), sep=',', index=False)
+
+        errors = {}
+        for index in idx_change_hist_last['Index'].unique():
+            errors[index] = []
+            hist_last_curr_index = idx_change_hist_last[idx_change_hist_last.Index == index]
+            idx_components_curr_index = idx_components_curr[idx_components_curr.Index == index]
+            for idx, row in hist_last_curr_index.iterrows():
+                if row['ChangeType'] == 'I' and row['Symbol'] not in idx_components_curr_index['Symbol']:
+                    errors[index].append(row['Symbol'])
+
+        print(errors)
+
+    def compare_index_data(self, index, year_file, prev_date, date, index_hist, index_year_data):
+
+        print('{}........................ {} Processing {} - {}...'.format(index, year_file, prev_date, date))
+
+        symbols_index_hist = index_hist[index_hist.Date == prev_date]['Symbol'].unique()
+        symbols_index_data = index_year_data[(index_year_data.Date >= int(prev_date)) &
+                                             (index_year_data.Date < int(date))]['Symbol'].unique()
+
+        symbols_hist = set(symbols_index_hist)
+        symbols_data = set(symbols_index_data)
+
+        hist_minus_data = symbols_hist - symbols_data
+        data_minus_hist = symbols_data - symbols_hist
+
+        if len(hist_minus_data) > 0:
+            print('HistMore Hist + [{}] , Data - [{}], Diff: {}'.format(
+                len(symbols_index_hist), len(symbols_index_data), hist_minus_data))
+        if len(data_minus_hist) > 0:
+            print('DataMore Hist - [{}], Data + [{}], Diff: {}'.format(
+                len(symbols_index_hist), len(symbols_index_data), data_minus_hist))
+
+    def test_inc_exc_index_data(self, indices='default', end_year='2100'):
+
+        if indices == 'default':
+            indices = (
+                'NIFTY LargeMidcap 250',
+                'NIFTY Midcap 100',
+                'NIFTY Smallcap 100',
+                'Nifty 100',
+                'Nifty 200',
+                'Nifty 50',
+                'Nifty 500',
+                'Nifty Alpha 50',
+                'Nifty High Beta 50',
+                'Nifty Low Volatility 50',
+                'Nifty Midcap 50',
+                'Nifty Midcap Liquid 15',
+                'Nifty Next 50',
+                'Nifty100 Liquid 15',
+            )
+            #indices = ('Nifty 50', 'Nifty 100')
+
+        qry = 'SELECT * FROM tblHistIndex WHERE IndexName in {} AND Date <= "{}1231" ' \
+              'ORDER BY IndexName ASC, Date ASC'.format(str(indices), end_year)
+        index_hist_all = pd.read_sql(qry, self.conn)
+
+        years = [year for year in self.YEARS if int(year) <= int(end_year)]
+
+        year_data = dict()
+        for year in years:
+            year_data[year] = pd.read_csv('{}{}.csv'.format(self.MOD_PATH, year))
+
+        for index in indices:
+            print('Processing {}...'.format(index))
+            index_hist = index_hist_all[index_hist_all.IndexName == index]
+            prev_date = '19000101'
+
+            for date in index_hist['Date'].unique():
+                prev_yr, curr_yr = prev_date[0:4], date[0:4]
+                if prev_yr != curr_yr:
+                    if prev_yr != '1900':
+                        print('Year end check')
+                        self.compare_index_data(index, prev_yr, prev_date, date, index_hist, index_year_data)
+                    index_year_data = year_data[curr_yr][year_data[curr_yr][index] == 1]
+
+                self.compare_index_data(index, curr_yr, prev_date, date, index_hist, index_year_data)
+
+                prev_date = date
+
+
+
+
+    def test_inc_exc_index_data_old2(self, indices='default', end_year='2100'):
+
+        if indices == 'default':
+            indices = (
+                'NIFTY LargeMidcap 250',
+                'NIFTY Midcap 100',
+                'NIFTY Smallcap 100',
+                'Nifty 100',
+                'Nifty 200',
+                'Nifty 50',
+                'Nifty 500',
+                'Nifty Alpha 50',
+                'Nifty High Beta 50',
+                'Nifty Low Volatility 50',
+                'Nifty Midcap 50',
+                'Nifty Midcap Liquid 15',
+                'Nifty Next 50',
+                'Nifty100 Liquid 15',
+            )
+            #indices = ('Nifty 50', 'Nifty 100')
+
+            qry = 'SELECT * FROM tblHistIndex WHERE IndexName in {} AND Date <= "{}1231" ' \
+                  'ORDER BY IndexName ASC, Date ASC'.format(str(indices), end_year)
+            index_hist_all = pd.read_sql(qry, self.conn)
+
+            for index in indices:
+                print('Processing {}...'.format(index))
+                index_hist = index_hist_all[index_hist_all.IndexName == index]
+                prev_date = '19000101'
+
+                for date in index_hist['Date'].unique():
+                    if prev_date == '19000101':
+                        prev_date = date
+                        year_data = pd.read_csv('{}{}.csv'.format(self.MOD_PATH, date[0:4]))
+                        index_year_data = year_data[year_data[index] == 1]
+                        index_two_yrs_data = index_year_data
+                        continue
+                    else:
+                        if prev_date[0:4] != date[0:4]:
+                            index_prev_year_data = index_year_data
+                            year_data = pd.read_csv('{}{}.csv'.format(self.MOD_PATH, date[0:4]))
+                            index_year_data = year_data[year_data[index] == 1]
+                            index_two_yrs_data = pd.concat([index_prev_year_data, index_year_data], axis=0)
+
+                    print('{}........................Processing {} prev date {}...'.format(index, date, prev_date))
+                    symbols_index_hist = index_hist[index_hist.Date == prev_date]['Symbol'].unique()
+                    symbols_index_data = index_two_yrs_data[(index_two_yrs_data.Date >= int(prev_date)) &
+                                                            (index_two_yrs_data.Date < int(date))]['Symbol'].unique()
+
+                    symbols_hist = set(symbols_index_hist)
+                    symbols_data = set(symbols_index_data)
+
+                    hist_minus_data = symbols_hist - symbols_data
+                    data_minus_hist = symbols_data - symbols_hist
+
+                    if len(hist_minus_data) > 0:
+                        print('HistMore Hist + [{}] , Data - [{}], Diff: {}'.format(
+                            len(symbols_index_hist), len(symbols_index_data), hist_minus_data))
+                    if len(data_minus_hist) > 0:
+                        print('DataMore Hist - [{}], Data + [{}], Diff: {}'.format(
+                            len(symbols_index_hist), len(symbols_index_data), data_minus_hist))
+
+                    prev_date = date
+
+    def test_inc_exc_index_data_old(self, indices='default', till='2100'):
+
+        if indices == 'default':
+            indices = (
+                'NIFTY LargeMidcap 250',
+                'NIFTY Midcap 100',
+                'NIFTY Smallcap 100',
+                'Nifty 100',
+                'Nifty 200',
+                'Nifty 50',
+                'Nifty 500',
+                'Nifty Alpha 50',
+                'Nifty High Beta 50',
+                'Nifty Low Volatility 50',
+                'Nifty Midcap 50',
+                'Nifty Midcap Liquid 15',
+                'Nifty Next 50',
+                'Nifty100 Liquid 15',
+            )
+            #indices = ('Nifty 50', 'Nifty 100')
+
+            qry = 'SELECT * FROM tblHistIndex WHERE IndexName in {} AND Date <= "{}1231" ' \
+                  'ORDER BY IndexName ASC, Date ASC'.format(str(indices), till)
+            index_hist_all = pd.read_sql(qry, self.conn)
+
+            for index in indices:
+                print('Processing {}...'.format(index))
+                index_hist = index_hist_all[index_hist_all.IndexName == index]
+                prev_date = '19000101'
+
+                for date in index_hist['Date'].unique():
+                    if prev_date == '19000101':
+                        prev_date = date
+                        year_data = pd.read_csv('{}{}.csv'.format(self.MOD_PATH, date[0:4]))
+                        index_year_data = year_data[year_data[index] == 1]
+                        index_two_yrs_data = index_year_data
+                        continue
+                    else:
+                        if prev_date[0:4] != date[0:4]:
+                            index_prev_year_data = index_year_data
+                            year_data = pd.read_csv('{}{}.csv'.format(self.MOD_PATH, date[0:4]))
+                            index_year_data = year_data[year_data[index] == 1]
+                            index_two_yrs_data = pd.concat([index_prev_year_data, index_year_data], axis=0)
+
+                    print('{}........................Processing {} prev date {}...'.format(index, date, prev_date))
+                    symbols_index_hist = index_hist[index_hist.Date == prev_date]['Symbol'].unique()
+                    symbols_index_data = index_two_yrs_data[(index_two_yrs_data.Date >= int(prev_date)) &
+                                                            (index_two_yrs_data.Date < int(date))]['Symbol'].unique()
+
+                    symbols_hist = set(symbols_index_hist)
+                    symbols_data = set(symbols_index_data)
+
+                    hist_minus_data = symbols_hist - symbols_data
+                    data_minus_hist = symbols_data - symbols_hist
+
+                    if len(hist_minus_data) > 0:
+                        print('HistMore Hist + [{}] , Data - [{}], Diff: {}'.format(
+                            len(symbols_index_hist), len(symbols_index_data), hist_minus_data))
+                    if len(data_minus_hist) > 0:
+                        print('DataMore Hist - [{}], Data + [{}], Diff: {}'.format(
+                            len(symbols_index_hist), len(symbols_index_data), data_minus_hist))
+
+                    prev_date = date
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
