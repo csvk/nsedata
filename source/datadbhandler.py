@@ -23,8 +23,10 @@ class DataDB:
              '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018']
 
     MOD_PATH = 'nse_eod_modifiers/'
+    EXTRACT_PATH = 'extract_files/'
     BONUS_SPLITS_FILE = '{}bonus_splits.csv'.format(MOD_PATH)
     SYMBOL_CHANGE_FILE = '{}symbol_change.csv'.format(MOD_PATH)
+    SYMBOL_CHANGE_NEW_FILE = '{}symbol_change_new.csv'.format(MOD_PATH)
     MULTIPLIERS_FILE = '{}multipliers.csv'.format(MOD_PATH)
     MULTIPLIER_SKIPS_FILE = '{}multipliers_skips.csv'.format(MOD_PATH)
     INDEX_CHANGE_DUMP_XL = '{}IndexInclExcl.xlsx'.format(MOD_PATH)
@@ -38,6 +40,45 @@ class DataDB:
     UNVERIFIED_SELECTED_RECORDS_FILE = '{}unverified_selected_records.csv'.format(MOD_PATH)
     REPLACEBLE_SELECTED_RECORDS = '{}replaceble_selected_records.csv'.format(MOD_PATH)
     REPLACEBLE_SKIPPED_RECORDS = '{}replaceble_skipped_records.csv'.format(MOD_PATH)
+    DUMP_REPORT = '{}dump_report.csv'.format(EXTRACT_PATH)
+    MOD_DUMP_REPORT = '{}mod_dump_report.csv'.format(EXTRACT_PATH)
+
+    NIFTY_INDICES = {
+        'NIFTY LargeMidcap 250': 'NLMC250',
+        'NIFTY Midcap 100': 'NMC100',
+        'NIFTY Smallcap 100': 'NSC100',
+        'Nifty 100': 'N100',
+        'Nifty 200': 'N200',
+        'Nifty 50': 'N50',
+        'Nifty 500': 'N500',
+        'Nifty Alpha 50': 'NALPHA50',
+        'Nifty Auto': 'NAUTO',
+        'Nifty Bank': 'NBANK',
+        'Nifty Commodities': 'NCOMM',
+        'Nifty Dividend Opportunities 50': 'NDIVO50',
+        'Nifty Energy': 'NENERGY',
+        'Nifty FMCG': 'NFMCG',
+        'Nifty Financial Services': 'NFINS',
+        'Nifty Growth Sectors 15': 'NGROWTH15',
+        'Nifty High Beta 50': 'NHBETA50',
+        'Nifty IT': 'NIT',
+        'Nifty India Consumption': 'NINDCONS',
+        'Nifty Infrastructure': 'NINFRA',
+        'Nifty Low Volatility 50': 'NLVOL50',
+        'Nifty MNC': 'NMNC',
+        'Nifty Media': 'NMEDIA',
+        'Nifty Metal': 'NMETAL',
+        'Nifty Midcap 50': 'NMC50',
+        'Nifty Midcap Liquid 15': 'NMCLIQ15',
+        'Nifty Next 50': 'NNXT50',
+        'Nifty PSE': 'NPSE',
+        'Nifty PSU Bank': 'NPSUBANK',
+        'Nifty Pharma': 'NPHARMA',
+        'Nifty Realty': 'NREALTY',
+        'Nifty Services Sector': 'NSERV',
+        'Nifty100 Liquid 15': 'N100LIQ15',
+        'Nifty50 Value 20': 'N50VAL20',
+    }
 
     def __init__(self, db, type='EQ'):
 
@@ -66,7 +107,7 @@ class DataDB:
 
     def load_multipliers(self, type='append'):
         """
-        Load tblMUltipliers table from csv
+        Load tblMultipliers table from csv
         :param type: 'append' or 'replace'
         :return: Nothing
         """
@@ -186,6 +227,57 @@ class DataDB:
         print('{} files processed, {} records read, {} records inserted, {} records duplicate, {} records skipped'.format(
             len(csv_files), read_count, write_count, len(duplicate_records.index), len(skipped_records.index)))
 
+    def append_tbldumps_from_csv(self, csv_path, start_date):
+        """
+        Append tblDump tables with historical data for last year records only
+        :param start_date: start date in YYYY-MM-DD from which data files need to be considered
+        :param csv_path: path of historical data in csv format
+        :return: None
+        """
+
+        year = start_date[0:4]
+
+        c = self.conn.cursor()
+
+        year_qry = '''SELECT * FROM tblDump{} ORDER BY Symbol, Date ASC'''.format(year)
+        year_records = pd.read_sql_query(year_qry, self.conn)
+
+        self.truncate_table('tblDump{}'.format(year))
+
+        csv_files = [f for f in os.listdir(csv_path) if f.endswith('.txt') and f[0:10] >= start_date]
+        csv_files.sort()
+
+        print('Initiating loading of {} files'.format(len(csv_files)))
+
+        col_names = ['Symbol', 'Date', 'Open', 'High', 'Low', 'Close', 'Volume']
+        skipped_records = pd.DataFrame()
+        duplicate_records = pd.DataFrame()
+        read_count, write_count, skipped_count = 0, 0, 0
+        for file in csv_files:
+            df = pd.read_csv(csv_path + file, names=col_names, header=None)
+            year_records = pd.concat([year_records, df], axis=0)
+            read_count = read_count + len(df.index)
+
+        # Write records for final year
+        year_unique = year_records.drop_duplicates(['Symbol', 'Date'], keep='first')
+        year_duplicate = year_records[year_records.duplicated(['Symbol', 'Date'], keep=False)]
+        year_skipped = year_records[year_records.duplicated(['Symbol', 'Date'], keep='first')]
+        self.insert_records(year_unique, table_name='tblDump{}'.format(year))
+        write_count = write_count + len(year_unique.index)
+        skipped_records = pd.concat([skipped_records, year_skipped], axis=0)
+        duplicate_records = pd.concat([duplicate_records, year_duplicate], axis=0)
+        print('{}: inserted {} records, duplicate {} records, skipped {} records'.format(year, len(year_unique.index),
+                                                                                         len(year_skipped.index),
+                                                                                         len(year_duplicate.index)))
+
+        c.close()
+
+        self.insert_records(skipped_records, table_name='tblSkipped')
+        self.insert_records(duplicate_records, table_name='tblDuplicates')
+
+        print('{} files processed, {} records read, {} records inserted, {} records duplicate, {} records skipped'.format(
+            len(csv_files), read_count, write_count, len(duplicate_records.index), len(skipped_records.index)))
+
     def fetch_records(self, tables, symbols, start_date='19000101', end_date='21001231'):
         """
         Fetch records from tblDumps or tblModDumps for given parameters
@@ -253,14 +345,15 @@ class DataDB:
         return {'price_error': open_e ** 2 + high_e ** 2 + low_e ** 2 + close_e ** 2,
                 'volume_error': volume_e ** 2}
         
-    def calculate_skipped_record_errors(self):
+    def calculate_skipped_record_errors(self, start_date='19000101'):
         """
         Assess whether selected records can be replaced by skipped records by calculating squared diffs with selected
         records price & volume with mean of prev and next day vis-a-vis that of skipped records
-        :return: Create csv file with replace reccommendations
+        :param start_date: YYYYMMDD for start date
+        :return: Create csv file with replace recommendation
         """
 
-        skipped_qry = 'SELECT DISTINCT * from tblSkipped'
+        skipped_qry = 'SELECT DISTINCT * FROM tblSkipped WHERE Date >= "{}"'.format(start_date)
         skipped_records = pd.read_sql_query(skipped_qry, self.conn)
 
         unverified_skipped_records = pd.DataFrame()
@@ -320,8 +413,12 @@ class DataDB:
 
         c = self.conn.cursor()
 
-        replaceable_selected_records = pd.read_csv(self.REPLACEBLE_SELECTED_RECORDS)
-        replaceable_skipped_records = pd.read_csv(self.REPLACEBLE_SKIPPED_RECORDS)
+        try:
+            replaceable_selected_records = pd.read_csv(self.REPLACEBLE_SELECTED_RECORDS)
+            replaceable_skipped_records = pd.read_csv(self.REPLACEBLE_SKIPPED_RECORDS)
+        except pd.errors.EmptyDataError:
+            print('No records to replace')
+            return
 
         for i in range(0, len(replaceable_selected_records.index)):
             sel_record = replaceable_selected_records.iloc[i:i+1, :]
@@ -343,14 +440,16 @@ class DataDB:
         self.conn.commit()
         c.close()
 
-    def save_symbols_date_range(self, append_from='1995'):
+    def save_symbols_date_range(self, append_from='1995', type='append'):
         """
         Save all symbols start and end dates in csv file
         :param append_from: start year for appending
         :return:
         """
 
-        exist_symbols_range = pd.read_sql_query('''SELECT * FROM tblSymbolRange''', self.conn)
+        exist_symbols_range = pd.DataFrame()
+        if type != 'append':
+            exist_symbols_range = pd.read_sql_query('''SELECT * FROM tblSymbolRange''', self.conn)
         self.truncate_table('tblSymbolRange', True)
 
         years = [year for year in self.YEARS if year >= append_from]
@@ -410,13 +509,53 @@ class DataDB:
                 df['Symbol'] = np.where(df.Symbol == symbol, symbol_changes[symbol], df.Symbol)
                 df_replace['Symbol'] = np.where(df_replace.Symbol == symbol, symbol_changes[symbol], df_replace.Symbol)
             df = pd.concat([df_replace, df], axis=0)
+            df['AdjustedOpen'] = np.nan
+            df['AdjustedHigh'] = np.nan
+            df['AdjustedLow'] = np.nan
+            df['AdjustedClose'] = np.nan
             df_unique = df.drop_duplicates(['Symbol', 'Date'], keep='first').copy()
-            df_unique['AdjustedOpen'] = np.nan
-            df_unique['AdjustedHigh'] = np.nan
-            df_unique['AdjustedLow'] = np.nan
-            df_unique['AdjustedClose'] = np.nan
             self.insert_records(df_unique, 'tblModDump{}'.format(year))
             df_duplicate = pd.concat([df_duplicate, df[df.duplicated(['Symbol', 'Date'], keep='first')]], axis=0)
+
+        if len(df_duplicate.index) > 0:
+            df_duplicate.to_csv(self.SYMBOL_CHANGE_DUPLICATES_FILE, sep=',', index=False)
+
+        c.close()
+
+    def append_modified_tbldumps(self, start_date):
+        """
+        Append tblModDumps from tblDumps with symbol changes and corrected records. Can be done only for last year
+        :param start_date: start date from which tables need to be updated in YYYYMMDD
+        :return: None
+        """
+
+        c = self.conn.cursor()
+
+        year = start_date[0:4]
+        year_qry = '''SELECT * FROM tblModDump{} ORDER BY Symbol, Date ASC'''.format(year)
+        #print(year_qry)
+        year_records = pd.read_sql_query(year_qry, self.conn)
+        self.truncate_table('tblModDump{}'.format(year))
+
+        symbol_change_records = pd.read_csv(self.SYMBOL_CHANGE_FILE)
+        symbol_changes = dict(zip(symbol_change_records.Old, symbol_change_records.New))
+
+        df_duplicate = pd.DataFrame()
+
+        df = pd.read_sql_query('''SELECT * FROM tblDump{} WHERE Date >= "{}"'''.format(year, start_date), self.conn)
+        df_replace = pd.read_sql_query('''SELECT * FROM tblDumpReplace'''.format(year), self.conn)
+        for symbol in symbol_changes.keys():
+            df['Symbol'] = np.where(df.Symbol == symbol, symbol_changes[symbol], df.Symbol)
+            df_replace['Symbol'] = np.where(df_replace.Symbol == symbol, symbol_changes[symbol], df_replace.Symbol)
+        df = pd.concat([df_replace, df], axis=0)
+        df['AdjustedOpen'] = np.nan
+        df['AdjustedHigh'] = np.nan
+        df['AdjustedLow'] = np.nan
+        df['AdjustedClose'] = np.nan
+        df = pd.concat([year_records, df], axis=0)
+        df_unique = df.drop_duplicates(['Symbol', 'Date'], keep='first').copy()
+        self.insert_records(df_unique, 'tblModDump{}'.format(year))
+        df_duplicate = pd.concat([df_duplicate, df[df.duplicated(['Symbol', 'Date'], keep='first')]], axis=0)
 
         if len(df_duplicate.index) > 0:
             df_duplicate.to_csv(self.SYMBOL_CHANGE_DUPLICATES_FILE, sep=',', index=False)
@@ -453,17 +592,18 @@ class DataDB:
         :return:
         """
 
-        multipliers_qry = '''SELECT * FROM tblMultipliers WHERE Date >= "{}" ORDER BY Symbol, Date'''.format(start_date)
+        multipliers_qry = '''SELECT * FROM tblMultipliers ORDER BY Symbol, Date'''
         multipliers = pd.read_sql_query(multipliers_qry, self.conn)
 
         c = self.conn.cursor()
 
         for symbol in multipliers['Symbol'].unique():
             symbol_multipliers = multipliers[multipliers.Symbol == symbol]
-            symbol_records = self.fetch_records('tblModDump', [symbol], start_date=symbol_multipliers.iloc[0]['Date'])
+            fetch_start_date = max(start_date, symbol_multipliers.iloc[0]['Date'])
+            symbol_records = self.fetch_records('tblModDump', [symbol], start_date=fetch_start_date)
             symbol_records_update = pd.DataFrame()
             for idx, row in symbol_multipliers.iterrows():
-                if len(symbol_records_update) > 0:
+                if len(symbol_records_update) > 0:  # Discard records >= row[date]
                     symbol_records_update = symbol_records_update[symbol_records_update.Date < row['Date']]
                 temp_records = symbol_records[symbol_records.Date >= row['Date']].copy()
                 temp_records['AdjustedOpen'] = temp_records['Open'] * row['ResultantMultiplier']
@@ -472,12 +612,12 @@ class DataDB:
                 temp_records['AdjustedClose'] = temp_records['Close'] * row['ResultantMultiplier']
                 symbol_records_update = pd.concat([symbol_records_update, temp_records], axis=0)
             if len(symbol_records_update) > 0:
-                first_date = symbol_records_update.iloc[0]['Date']
-                delete_qry = '''DELETE FROM tblModDump{} WHERE Symbol = "{}" AND Date >= "{}"'''.format(first_date[0:4],
-                                                                                                        symbol,
-                                                                                                        first_date)
-                c.execute(delete_qry)
-                self.conn.commit()
+                #first_date = symbol_records_update.iloc[0]['Date']
+                #delete_qry = '''DELETE FROM tblModDump{} WHERE Symbol = "{}" AND Date >= "{}"'''.format(first_date[0:4],
+                #                                                                                        symbol,
+                #                                                                                        first_date)
+                #c.execute(delete_qry)
+                #self.conn.commit()
                 self.update_records(symbol_records_update)
                 print('update complete for', symbol)
             else:
@@ -549,6 +689,26 @@ class DataDB:
                                                                                   s_range.iloc[0]['EndDate']))
                 else:
                     print('{},{},not found'.format(row['Symbol'], row['Date']))
+
+    def table_report(self):
+
+        df_dump, df_mod_dump = pd.DataFrame(), pd.DataFrame()
+        for year in self.YEARS:
+            dump_qry = """SELECT '{0}' Year, COUNT(*), SUM(Open), SUM(High), SUM(Low), SUM(Close), SUM(Volume) 
+                            FROM tblDump{0}""".format(year)
+            mod_dump_qry = """SELECT '{0}' Year, COUNT(*), SUM(Open), SUM(High), SUM(Low), SUM(Close), SUM(Volume), 
+                                     SUM(AdjustedOpen), SUM(AdjustedHigh), SUM(AdjustedLow), SUM(AdjustedClose) 
+                                FROM tblModDump{0}""".format(year)
+            df_dump = pd.concat([df_dump, pd.read_sql(dump_qry, self.conn)], axis=0)
+            df_mod_dump = pd.concat([df_mod_dump, pd.read_sql(mod_dump_qry, self.conn)], axis=0)
+
+        print('printing Dump report...')
+        print(df_dump)
+        print('printing modDump report...')
+        print(df_mod_dump)
+
+        df_dump.to_csv(self.DUMP_REPORT, sep=',', index=False)
+        df_mod_dump.to_csv(self.MOD_DUMP_REPORT, sep=',', index=False)
 
     def load_historical_index_components(self):
         """
@@ -685,7 +845,109 @@ class DataDB:
                     yr_records.loc[(yr_records.Symbol == symbol) &
                                    (yr_records.Date >= int(prev_dates[index])), index] = 1
 
+            yr_records.to_csv('{}{}.csv'.format(self.EXTRACT_PATH, year), sep=',', index=False)
+
+        c.close()
+
+    def symbols_index_hist_files_new(self, indices='default', start_year='1995', end_year='2100'):
+        """
+        Create yearly files for symbols inclusion/exclusion in indices
+        :param indices:
+        :param start_year:
+        :param end_year:
+        :return:
+        """
+
+        if indices == 'default':
+            indices = (
+                'NIFTY LargeMidcap 250',
+                'NIFTY Midcap 100',
+                'NIFTY Smallcap 100',
+                'Nifty 100',
+                'Nifty 200',
+                'Nifty 50',
+                'Nifty 500',
+                'Nifty Alpha 50',
+                'Nifty High Beta 50',
+                'Nifty Low Volatility 50',
+                'Nifty Midcap 50',
+                'Nifty Midcap Liquid 15',
+                'Nifty Next 50',
+                'Nifty100 Liquid 15',
+            )
+
+        years = [year for year in self.YEARS if start_year <= year <= end_year]
+
+        c = self.conn.cursor()
+
+        print('Loading Index History...')
+        qry = """SELECT t1. * 
+                   FROM tblHistIndex t1
+                   JOIN (SELECT IndexName, Min(Date) FirstDate
+                           FROM (SELECT DISTINCT IndexName, Max(Date) Date
+                                   FROM tblHistIndex
+                                  WHERE Date < '{}0101'
+                                  GROUP BY IndexName
+                                  UNION
+                                 SELECT DISTINCT IndexName, Min(Date) Date
+                                   FROM tblHistIndex
+                                  WHERE Date >= '{}0101'
+                                  GROUP BY IndexName)
+                          GROUP BY IndexName) t2
+                  WHERE t1.IndexName = t2.IndexName
+                    AND t1.Date >= t2.FirstDate
+                    AND t2.IndexName in {}
+                  ORDER BY IndexName ASC, Date ASC""".format(start_year, start_year, str(indices))
+
+        index_hist = pd.read_sql(qry, self.conn)
+
+        for index in index_hist.InddexName.unique():
+            print('Processing {}...'.format(year))
+
+            qry_yr = 'SELECT Symbol, Date FROM tblModDump{}'.format(year)
+            yr_records = pd.read_sql(qry_yr, self.conn)
+            yr_records['Date'] = pd.to_numeric(yr_records['Date'])
+            for index in index_hist['IndexName'].unique():
+                print('Processing {} {}...'.format(year, index))
+                yr_records[index] = [0] * yr_records['Symbol'].size
+                index_hist_curr = index_hist[(index_hist.IndexName == index) &
+                                             (index_hist.Date >= prev_dates[index])].copy()
+                in_scope_dates = [d for d in list(index_hist_curr['Date'].unique()) if int(d[0:4]) == int(year)]
+                for date in in_scope_dates:
+                    print('................ Processing {}... prev date {}'.format(date, prev_dates[index]))
+
+                    index_hist_prev_date = index_hist_curr[index_hist_curr.Date == prev_dates[index]].copy()
+                    for symbol in index_hist_prev_date['Symbol'].unique():
+                        yr_records.loc[(yr_records.Symbol == symbol) & (yr_records.Date >= int(prev_dates[index])) &
+                                       (yr_records.Date < int(date)), index] = 1
+                    prev_dates[index] = date
+                if prev_dates[index][0:4] != year:
+                    continue
+
+                print('................ Processing {}...'.format(prev_dates[index]))
+                index_hist_prev_date = index_hist_curr[index_hist_curr.Date == prev_dates[index]].copy()
+                for symbol in index_hist_prev_date['Symbol'].unique():
+                    yr_records.loc[(yr_records.Symbol == symbol) &
+                                   (yr_records.Date >= int(prev_dates[index])), index] = 1
+
             yr_records.to_csv('{}{}.csv'.format(self.MOD_PATH, year), sep=',', index=False)
+
+        c.close()
+
+    def update_symbol_change(self):
+
+        symbol_change_records = pd.read_csv(self.SYMBOL_CHANGE_NEW_FILE)
+        symbol_changes = dict(zip(symbol_change_records.Old, symbol_change_records.New))
+
+        c = self.conn.cursor()
+
+        for symbol in symbol_changes.keys():
+            for year in self.YEARS:
+                print('updating for', symbol, year)
+                update_qry = "UPDATE tblModDump{} SET Symbol = '{}' WHERE Symbol = '{}'".format(
+                    year, symbol_changes[symbol], symbol)
+                c.execute(update_qry)
+                self.conn.commit()
 
         c.close()
 
@@ -783,3 +1045,62 @@ class DataDB:
                 self.compare_index_data(index, curr_yr, prev_date, date, index_hist, index_year_data)
 
                 prev_date = date
+
+    def create_amibroker_import_files(self, path, start_date='19000101'):
+
+        start_year = start_date[0:4]
+        years = [year for year in self.YEARS if year >= start_year]
+
+        for year in years:
+            print('creating files for year', year)
+            if year == start_year:
+                qry = "SELECT Symbol, Date, Open, High, Low, Close, Volume WHERE Date >= '{}'".format(start_date)
+                qry_mod = "SELECT Symbol, Date, AdjustedOpen, AdjustedHigh, AdjustedLow, AdjustedClose, Volume " \
+                          "WHERE Date >= '{}'".format(start_date)
+            else:
+                qry = "SELECT Symbol, Date, Open, High, Low, Close, Volume"
+                qry_mod = "SELECT Symbol, Date, AdjustedOpen, AdjustedHigh, AdjustedLow, AdjustedClose, Volume"
+            df = pd.read_sql(qry, self.conn)
+            df.to_csv('{}{}.csv'.format(path, year), sep=',', index=False)
+            df = pd.read_sql(qry_mod, self.conn)
+            df.to_csv('{}{}.MOD.csv'.format(path, year), sep=',', index=False)
+
+    def create_amibroker_import_files_index_incexc(self, index, path, start_date='19000101', type='delta'):
+
+        start_year = start_date[0:4]
+
+        if type == 'all':
+            years = [year for year in self.YEARS if year >= start_year]
+
+            for year in years:
+                print('creating files for year', year)
+                df = pd.read_csv('{}{}.csv'.format(self.MOD_PATH, year))
+                df = df[df.Date >= start_date]
+                df = df[['Symbol', 'Date', index]]
+                df.to_csv('{}{}.{}.csv'.format(path, year, self.NIFTY_INDICES[index]), sep=',', index=False)
+
+        elif type == 'delta': # Works only if start_date >= max date in tblHistIndex
+            last_idx_change_date = pd.read_sql_query('SELECT MAX(Date) MaxDate FROM tblHistIndex', self.conn)
+            if start_date < last_idx_change_date.MaxDate[0]:
+                print('start date {} less than last index change date {}, quitting....')
+            else:
+                print('creating file for start date', start_date)
+                df_idx = pd.read_csv(self.INDEX_COMPONENTS_CURR)
+                df_idx = df_idx[df_idx.Index == index]
+                df_idx = df_idx.set_index('Symbol')
+                df_idx[index] = 1
+
+                df = pd.read_csv('{}{}.csv'.format(self.MOD_PATH, start_year))
+                df = df[df.Date >= int(start_date)]
+                df = df.set_index('Symbol')
+                df = df.assign(index=df_idx[index]).fillna(0)
+                df['Symbol'] = df.index
+                df = df[['Symbol', 'Date', index]]
+                df.to_csv('{}{}.{}.csv'.format(path, start_date, self.NIFTY_INDICES[index]), sep=',', index=False)
+
+
+
+
+
+
+

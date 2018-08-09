@@ -61,82 +61,11 @@ CREATE UNIQUE INDEX `idxDumpReplace` ON `tblDumpReplace` ( `Symbol` ASC, `Date` 
 CREATE TABLE `tblMultipliers` ( `Symbol` TEXT, `Date` TEXT, `Multiplier` REAL, `ResultantMultiplier` REAL, PRIMARY KEY(`Symbol`,`Date`) );
 CREATE UNIQUE INDEX `idxMultipliers` ON `tblMultipliers` ( `Symbol` ASC, `Date` ASC );
 
-CREATE TABLE "tblSymbolRange" ( `Symbol` TEXT, `StartDate` TEXT, `EndDate` TEXT );
-CREATE INDEX `idxSymbolRange` ON `tblSymbolRange` ( `Symbol` ASC, `StartDate` ASC, `EndDate` ASC );
+CREATE TABLE `tblSymbolRange` ( `Symbol` TEXT, `TableSource` TEXT, `StartDate` TEXT, `EndDate` TEXT );
+CREATE INDEX `idxSymbolRange` ON `tblSymbolRange` ( `TableSource` ASC, `Symbol` ASC, `StartDate` ASC, `EndDate` ASC );
 
-drop table tblModDump1995;
-drop table tblModDump1996;
-drop table tblModDump1997;
-drop table tblModDump1998;
-drop table tblModDump1999;
-drop table tblModDump2000;
-drop table tblModDump2001;
-drop table tblModDump2002;
-drop table tblModDump2003;
-drop table tblModDump2004;
-drop table tblModDump2005;
-drop table tblModDump2006;
-drop table tblModDump2007;
-drop table tblModDump2008;
-drop table tblModDump2009;
-drop table tblModDump2010;
-drop table tblModDump2011;
-drop table tblModDump2012;
-drop table tblModDump2013;
-drop table tblModDump2014;
-drop table tblModDump2015;
-drop table tblModDump2016;
-drop table tblModDump2017;
-drop table tblModDump2018;
-
-CREATE TABLE `tblModDump1995` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump1995` ON `tblModDump1995` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump1996` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump1996` ON `tblModDump1996` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump1997` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump1997` ON `tblModDump1997` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump1998` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump1998` ON `tblModDump1998` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump1999` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump1999` ON `tblModDump1999` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2000` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2000` ON `tblModDump2000` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2001` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2001` ON `tblModDump2001` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2002` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2002` ON `tblModDump2002` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2003` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2003` ON `tblModDump2003` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2004` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2004` ON `tblModDump2004` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2005` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2005` ON `tblModDump2005` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2006` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2006` ON `tblModDump2006` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2007` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2007` ON `tblModDump2007` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2008` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2008` ON `tblModDump2008` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2009` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2009` ON `tblModDump2009` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2010` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2010` ON `tblModDump2010` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2011` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2011` ON `tblModDump2011` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2012` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2012` ON `tblModDump2012` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2013` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2013` ON `tblModDump2013` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2014` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2014` ON `tblModDump2014` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2015` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2015` ON `tblModDump2015` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2016` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2016` ON `tblModDump2016` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2017` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2017` ON `tblModDump2017` ( `Symbol` ASC, `Date` ASC );
-CREATE TABLE `tblModDump2018` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, PRIMARY KEY(`Symbol`,`Date`) );
-CREATE UNIQUE INDEX `idxModDump2018` ON `tblModDump2018` ( `Symbol` ASC, `Date` ASC );
+CREATE TABLE `tblHistIndex` ( `IndexName` TEXT, `Symbol` TEXT, `Date` TEXT );
+CREATE INDEX `idxHistIndex` ON `tblHistIndex` ( `IndexName` ASC, `Date` ASC );
 
 CREATE TABLE `tblModDump1995` ( `Symbol` TEXT, `Date` TEXT, `Open` REAL, `High` REAL, `Low` REAL, `Close` REAL, `Volume` INTEGER, `AdjustedOpen` REAL, `AdjustedHigh` REAL, `AdjustedLow` REAL, `AdjustedClose` REAL, PRIMARY KEY(`Symbol`,`Date`) );
 CREATE UNIQUE INDEX `idxModDump1995` ON `tblModDump1995` ( `Symbol` ASC, `Date` ASC );
@@ -279,6 +208,32 @@ SELECT D.*
 				WHERE S.Symbol is Null
 
 select symbol, date, count(date) count from tblDuplicates group by symbol, date order by count desc
+
+select '1995', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump1995
+select '1996', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump1996
+select '1997', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump1997
+select '1998', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump1998
+select '1999', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump1999
+select '2000', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2000
+select '2001', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2001
+select '2002', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2002
+select '2003', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2003
+select '2004', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2004
+select '2005', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2005
+select '2006', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2006
+select '2007', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2007
+select '2008', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2008
+select '2009', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2009
+select '2010', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2010
+select '2011', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2011
+select '2012', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2012
+select '2013', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2013
+select '2014', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2014
+select '2015', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2015
+select '2016', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2016
+select '2017', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2017
+select '2018', count(*), sum(Open), sum(High), sum(Low), sum(Close), sum(Volume), sum(AdjustedOpen), sum(AdjustedHigh), sum(AdjustedLow), sum(AdjustedClose)  from tblModDump2018
+
 
 select count(*) c from tblModDump1995
 union select count(*) c from tblModDump1996
