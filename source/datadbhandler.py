@@ -23,7 +23,7 @@ class DataDB:
              '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018']
 
     MOD_PATH = 'nse_eod_modifiers/'
-    EXTRACT_PATH = 'extract_files/'
+    INC_EXC_PATH = 'inc_exc_files/'
     BONUS_SPLITS_FILE = '{}bonus_splits.csv'.format(MOD_PATH)
     SYMBOL_CHANGE_FILE = '{}symbol_change.csv'.format(MOD_PATH)
     SYMBOL_CHANGE_NEW_FILE = '{}symbol_change_new.csv'.format(MOD_PATH)
@@ -40,8 +40,8 @@ class DataDB:
     UNVERIFIED_SELECTED_RECORDS_FILE = '{}unverified_selected_records.csv'.format(MOD_PATH)
     REPLACEBLE_SELECTED_RECORDS = '{}replaceble_selected_records.csv'.format(MOD_PATH)
     REPLACEBLE_SKIPPED_RECORDS = '{}replaceble_skipped_records.csv'.format(MOD_PATH)
-    DUMP_REPORT = '{}dump_report.csv'.format(EXTRACT_PATH)
-    MOD_DUMP_REPORT = '{}mod_dump_report.csv'.format(EXTRACT_PATH)
+    DUMP_REPORT = '{}dump_report.csv'.format(INC_EXC_PATH)
+    MOD_DUMP_REPORT = '{}mod_dump_report.csv'.format(INC_EXC_PATH)
 
     NIFTY_INDICES = {
         'NIFTY LargeMidcap 250': 'NLMC250',
@@ -235,6 +235,7 @@ class DataDB:
         :return: None
         """
 
+        start_date = dates.yyyymmdd_to_yyyy_mm_dd(start_date)
         year = start_date[0:4]
 
         c = self.conn.cursor()
@@ -845,16 +846,15 @@ class DataDB:
                     yr_records.loc[(yr_records.Symbol == symbol) &
                                    (yr_records.Date >= int(prev_dates[index])), index] = 1
 
-            yr_records.to_csv('{}{}.csv'.format(self.EXTRACT_PATH, year), sep=',', index=False)
+            yr_records.to_csv('{}{}.csv'.format(self.INC_EXC_PATH, year), sep=',', index=False)
 
         c.close()
 
-    def symbols_index_hist_files_new(self, indices='default', start_year='1995', end_year='2100'):
+    def symbols_index_hist_files_delta(self, start_date, indices='default'):
         """
-        Create yearly files for symbols inclusion/exclusion in indices
+        Create current file for symbols inclusion/exclusion in indices
         :param indices:
-        :param start_year:
-        :param end_year:
+        :param start_date:
         :return:
         """
 
@@ -876,61 +876,32 @@ class DataDB:
                 'Nifty100 Liquid 15',
             )
 
-        years = [year for year in self.YEARS if start_year <= year <= end_year]
-
         c = self.conn.cursor()
 
-        print('Loading Index History...')
-        qry = """SELECT t1. * 
-                   FROM tblHistIndex t1
-                   JOIN (SELECT IndexName, Min(Date) FirstDate
-                           FROM (SELECT DISTINCT IndexName, Max(Date) Date
-                                   FROM tblHistIndex
-                                  WHERE Date < '{}0101'
-                                  GROUP BY IndexName
-                                  UNION
-                                 SELECT DISTINCT IndexName, Min(Date) Date
-                                   FROM tblHistIndex
-                                  WHERE Date >= '{}0101'
-                                  GROUP BY IndexName)
-                          GROUP BY IndexName) t2
-                  WHERE t1.IndexName = t2.IndexName
-                    AND t1.Date >= t2.FirstDate
-                    AND t2.IndexName in {}
-                  ORDER BY IndexName ASC, Date ASC""".format(start_year, start_year, str(indices))
+        print('Loading Current Index Components...')
 
-        index_hist = pd.read_sql(qry, self.conn)
+        idx_comp = pd.read_csv(self.INDEX_COMPONENTS_CURR)
+        idx_comp['IncFlag'] = 1
+        #index = idx_comp.Index + idx_comp.Symbol
+        idx_comp = idx_comp.set_index('Symbol')
 
-        for index in index_hist.InddexName.unique():
-            print('Processing {}...'.format(year))
+        print('Processing data from {}...'.format(start_date))
 
-            qry_yr = 'SELECT Symbol, Date FROM tblModDump{}'.format(year)
-            yr_records = pd.read_sql(qry_yr, self.conn)
-            yr_records['Date'] = pd.to_numeric(yr_records['Date'])
-            for index in index_hist['IndexName'].unique():
-                print('Processing {} {}...'.format(year, index))
-                yr_records[index] = [0] * yr_records['Symbol'].size
-                index_hist_curr = index_hist[(index_hist.IndexName == index) &
-                                             (index_hist.Date >= prev_dates[index])].copy()
-                in_scope_dates = [d for d in list(index_hist_curr['Date'].unique()) if int(d[0:4]) == int(year)]
-                for date in in_scope_dates:
-                    print('................ Processing {}... prev date {}'.format(date, prev_dates[index]))
+        qry = "SELECT Symbol, Date FROM tblModDump{} WHERE Date >= '{}'".format(start_date[0:4], start_date)
+        records = pd.read_sql(qry, self.conn)
+        records = records.set_index('Symbol')
+        #records['Date'] = pd.to_numeric(records['Date'])
+        records['Symbol'] = records.index
+        records = records[['Symbol', 'Date']]
+        for index in indices:
+            print('Processing {}...'.format(index))
+            idx_comp_index = idx_comp[idx_comp.Index == index].copy()
+            records = records.assign(IncFlag=idx_comp_index.IncFlag).fillna(0)
+            records = records.rename(index=str, columns={'IncFlag': index})
 
-                    index_hist_prev_date = index_hist_curr[index_hist_curr.Date == prev_dates[index]].copy()
-                    for symbol in index_hist_prev_date['Symbol'].unique():
-                        yr_records.loc[(yr_records.Symbol == symbol) & (yr_records.Date >= int(prev_dates[index])) &
-                                       (yr_records.Date < int(date)), index] = 1
-                    prev_dates[index] = date
-                if prev_dates[index][0:4] != year:
-                    continue
 
-                print('................ Processing {}...'.format(prev_dates[index]))
-                index_hist_prev_date = index_hist_curr[index_hist_curr.Date == prev_dates[index]].copy()
-                for symbol in index_hist_prev_date['Symbol'].unique():
-                    yr_records.loc[(yr_records.Symbol == symbol) &
-                                   (yr_records.Date >= int(prev_dates[index])), index] = 1
 
-            yr_records.to_csv('{}{}.csv'.format(self.MOD_PATH, year), sep=',', index=False)
+        records.to_csv('{}{}.csv'.format(self.INC_EXC_PATH, start_date), sep=',', index=False)
 
         c.close()
 
@@ -1027,7 +998,7 @@ class DataDB:
 
         year_data = dict()
         for year in years:
-            year_data[year] = pd.read_csv('{}{}.csv'.format(self.MOD_PATH, year))
+            year_data[year] = pd.read_csv('{}{}.csv'.format(self.INC_EXC_PATH, year))
 
         for index in indices:
             print('Processing {}...'.format(index))
@@ -1046,7 +1017,7 @@ class DataDB:
 
                 prev_date = date
 
-    def create_amibroker_import_files(self, path, start_date='19000101'):
+    def create_amibroker_import_files(self, path, start_date='19000101', type='delta'):
 
         start_year = start_date[0:4]
         years = [year for year in self.YEARS if year >= start_year]
@@ -1054,30 +1025,48 @@ class DataDB:
         for year in years:
             print('creating files for year', year)
             if year == start_year:
-                qry = "SELECT Symbol, Date, Open, High, Low, Close, Volume WHERE Date >= '{}'".format(start_date)
-                qry_mod = "SELECT Symbol, Date, AdjustedOpen, AdjustedHigh, AdjustedLow, AdjustedClose, Volume " \
-                          "WHERE Date >= '{}'".format(start_date)
+                qry = """SELECT Symbol, Date, Open, High, Low, Close, Volume 
+                           FROM tblModDump{} WHERE Date >= '{}'
+                          ORDER BY Symbol ASC, Date ASC""".format(year, start_date)
+                qry_mod = """SELECT Symbol, Date, AdjustedOpen Open, AdjustedHigh High, AdjustedLow Low, 
+                                    AdjustedClose Close, Volume 
+                               FROM tblModDump{0} WHERE Date >= '{1}' AND AdjustedOpen IS NOT NULL 
+                              UNION
+                             SELECT Symbol, Date, Open, High, Low, Close, Volume 
+                               FROM tblModDump{0} WHERE Date >= '{1}' AND AdjustedOpen IS  NULL""".format(
+                    year, start_date)
             else:
-                qry = "SELECT Symbol, Date, Open, High, Low, Close, Volume"
-                qry_mod = "SELECT Symbol, Date, AdjustedOpen, AdjustedHigh, AdjustedLow, AdjustedClose, Volume"
+                qry = """SELECT Symbol, Date, Open, High, Low, Close, Volume 
+                           FROM tblModDump{}
+                          ORDER BY Symbol ASC, Date ASC""".format(year)
+                qry_mod = """SELECT Symbol, Date, AdjustedOpen Open, AdjustedHigh High, AdjustedLow Low, 
+                                    AdjustedClose Close, Volume
+                               FROM tblModDump{0} WHERE AdjustedOpen IS NOT NULL 
+                              UNION
+                             SELECT Symbol, Date, Open, High, Low, Close, Volume 
+                               FROM tblModDump{0} WHERE AdjustedOpen IS  NULL""".format(year)
+
+            name = start_date if type == 'delta' else year
             df = pd.read_sql(qry, self.conn)
-            df.to_csv('{}{}.csv'.format(path, year), sep=',', index=False)
+            df.to_csv('{}{}.csv'.format(path, name), sep=',', index=False)
             df = pd.read_sql(qry_mod, self.conn)
-            df.to_csv('{}{}.MOD.csv'.format(path, year), sep=',', index=False)
+            df.sort_values(['Symbol', 'Date'], ascending=[True, True])
+            df.Symbol = df.Symbol + '.A'
+            df.to_csv('{}A.{}.csv'.format(path, name), sep=',', index=False)
 
     def create_amibroker_import_files_index_incexc(self, index, path, start_date='19000101', type='delta'):
 
         start_year = start_date[0:4]
 
-        if type == 'all':
+        if type == 'full':
             years = [year for year in self.YEARS if year >= start_year]
 
             for year in years:
                 print('creating files for year', year)
-                df = pd.read_csv('{}{}.csv'.format(self.MOD_PATH, year))
-                df = df[df.Date >= start_date]
+                df = pd.read_csv('{}{}.csv'.format(self.INC_EXC_PATH, year))
+                df = df[df.Date >= int(start_date)]
                 df = df[['Symbol', 'Date', index]]
-                df.to_csv('{}{}.{}.csv'.format(path, year, self.NIFTY_INDICES[index]), sep=',', index=False)
+                df.to_csv('{}{}.{}.csv'.format(path, self.NIFTY_INDICES[index], year), sep=',', index=False)
 
         elif type == 'delta': # Works only if start_date >= max date in tblHistIndex
             last_idx_change_date = pd.read_sql_query('SELECT MAX(Date) MaxDate FROM tblHistIndex', self.conn)
@@ -1090,13 +1079,13 @@ class DataDB:
                 df_idx = df_idx.set_index('Symbol')
                 df_idx[index] = 1
 
-                df = pd.read_csv('{}{}.csv'.format(self.MOD_PATH, start_year))
+                df = pd.read_csv('{}{}.csv'.format(self.INC_EXC_PATH, start_year))
                 df = df[df.Date >= int(start_date)]
                 df = df.set_index('Symbol')
                 df = df.assign(index=df_idx[index]).fillna(0)
                 df['Symbol'] = df.index
                 df = df[['Symbol', 'Date', index]]
-                df.to_csv('{}{}.{}.csv'.format(path, start_date, self.NIFTY_INDICES[index]), sep=',', index=False)
+                df.to_csv('{}{}.{}.csv'.format(path, self.NIFTY_INDICES[index], start_date), sep=',', index=False)
 
 
 

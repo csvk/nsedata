@@ -88,6 +88,11 @@ def datediff(date1, date2):
 def yyyy_mm_dd_to_yyyymmdd(date):
     return '{}{}{}'.format(date[0:4], date[5:7], date[8:10])
 
+# Below functions take input as YYYYMMDD as input date format
+
+def yyyymmdd_to_yyyy_mm_dd(date):
+    return '{}-{}-{}'.format(date[0:4], date[4:6], date[6:8])
+
 # Below functions take input as MM-DD-YYYY as input date format
 
 def mm_dd_yyyy_to_yyyy_mm_dd(date, sep='-'):
