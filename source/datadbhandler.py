@@ -1065,10 +1065,12 @@ class DataDB:
                 print('creating files for year', year)
                 df = pd.read_csv('{}{}.csv'.format(self.INC_EXC_PATH, year))
                 df = df[df.Date >= int(start_date)]
-                df = df[['Symbol', 'Date', index]]
+                df.Symbol = df.Symbol + '.{}'.format(self.NIFTY_INDICES[index])
+                df['Open'], df['High'], df['Low'], df['Close'] = 0, 0, 0, 1
+                df = df[['Symbol', 'Date', 'Open', 'High', 'Low', 'Close', index]]
                 df.to_csv('{}{}.{}.csv'.format(path, self.NIFTY_INDICES[index], year), sep=',', index=False)
 
-        elif type == 'delta': # Works only if start_date >= max date in tblHistIndex
+        elif type == 'delta':  # Works only if start_date >= max date in tblHistIndex
             last_idx_change_date = pd.read_sql_query('SELECT MAX(Date) MaxDate FROM tblHistIndex', self.conn)
             if start_date < last_idx_change_date.MaxDate[0]:
                 print('start date {} less than last index change date {}, quitting....')
@@ -1079,12 +1081,14 @@ class DataDB:
                 df_idx = df_idx.set_index('Symbol')
                 df_idx[index] = 1
 
-                df = pd.read_csv('{}{}.csv'.format(self.INC_EXC_PATH, start_year))
+                df = pd.read_csv('{}{}.csv'.format(self.INC_EXC_PATH, start_date))
                 df = df[df.Date >= int(start_date)]
                 df = df.set_index('Symbol')
                 df = df.assign(index=df_idx[index]).fillna(0)
                 df['Symbol'] = df.index
-                df = df[['Symbol', 'Date', index]]
+                df['Open'], df['High'], df['Low'], df['Close'] = 0, 0, 0, 1
+                df = df[['Symbol', 'Date', 'Open', 'High', 'Low', 'Close', index]]
+                df.Symbol = df.Symbol + '.{}'.format(self.NIFTY_INDICES[index])
                 df.to_csv('{}{}.{}.csv'.format(path, self.NIFTY_INDICES[index], start_date), sep=',', index=False)
 
 

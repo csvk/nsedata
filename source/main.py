@@ -36,7 +36,7 @@ db = dbhandler.DataDB(DBPATH)
 #db.test_inc_exc_index_data()  # 10
 #db.update_symbol_change() # Use if symbol changed, and db update is delayed
 #db.create_amibroker_import_files(path=AMI_PATH, type='full')  # 11
-#db.create_amibroker_import_files_index_incexc(index='Nifty 50', path=AMI_PATH, type='full')  # 12
+db.create_amibroker_import_files_index_incexc(index='Nifty 50', path=AMI_PATH, type='full')  # 12
 
 # For delta run:
 delta_date = '20180807'
@@ -49,5 +49,5 @@ delta_date = '20180807'
 #db.update_adjusted_price(delta_date)  # 7
 #db.load_historical_index_components()  # 8 May not be needed always
 #db.symbols_index_hist_files_delta(delta_date)  # 9
-db.create_amibroker_import_files(path=AMI_PATH, start_date=delta_date)  # 10
+#db.create_amibroker_import_files(path=AMI_PATH, start_date=delta_date)  # 10
 db.create_amibroker_import_files_index_incexc(index='Nifty 50', path=AMI_PATH, start_date=delta_date)  # 11
