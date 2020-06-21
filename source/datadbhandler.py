@@ -20,28 +20,29 @@ class DataDB:
     # constants
 
     YEARS = ['1995', '1996', '1997', '1998', '1999', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007',
-             '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018']
+             '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020']
 
-    MOD_PATH = 'nse_eod_modifiers/'
-    INC_EXC_PATH = 'inc_exc_files/'
-    BONUS_SPLITS_FILE = '{}bonus_splits.csv'.format(MOD_PATH)
-    SYMBOL_CHANGE_FILE = '{}symbol_change.csv'.format(MOD_PATH)
-    SYMBOL_CHANGE_NEW_FILE = '{}symbol_change_new.csv'.format(MOD_PATH)
-    MULTIPLIERS_FILE = '{}multipliers.csv'.format(MOD_PATH)
-    MULTIPLIER_SKIPS_FILE = '{}multipliers_skips.csv'.format(MOD_PATH)
-    INDEX_CHANGE_DUMP_XL = '{}IndexInclExcl.xlsx'.format(MOD_PATH)
-    INDEX_CHANGE_DUMP_CSV = '{}IndexInclExcl.csv'.format(MOD_PATH)
-    INDEX_CHANGE_MOD_CSV = '{}IndexInclExclMod.csv'.format(MOD_PATH)
-    INDEX_CHANGE_MOD_TEST_CSV = '{}IndexInclExclModTest.csv'.format(MOD_PATH)
-    INDEX_COMPONENTS_CURR = '{}index_components_curr.csv'.format(MOD_PATH)
-    INDEX_CHANGE_CSV = '{}index_inc_exc.csv'.format(MOD_PATH)
-    SYMBOL_CHANGE_DUPLICATES_FILE = '{}symbol_change_duplicates.csv'.format(MOD_PATH)
-    UNVERIFIED_SKIPPED_RECORDS_FILE = '{}unverified_skipped_records.csv'.format(MOD_PATH)
-    UNVERIFIED_SELECTED_RECORDS_FILE = '{}unverified_selected_records.csv'.format(MOD_PATH)
-    REPLACEBLE_SELECTED_RECORDS = '{}replaceble_selected_records.csv'.format(MOD_PATH)
-    REPLACEBLE_SKIPPED_RECORDS = '{}replaceble_skipped_records.csv'.format(MOD_PATH)
-    DUMP_REPORT = '{}dump_report.csv'.format(INC_EXC_PATH)
-    MOD_DUMP_REPORT = '{}mod_dump_report.csv'.format(INC_EXC_PATH)
+    MOD_PATH = 'nse_eod_modifiers'
+    INC_EXC_PATH = 'inc_exc_files'
+    # BONUS_SPLITS_FILE = '{}/bonus_splits.csv'.format(MOD_PATH)
+    SYMBOL_CHANGE_FILE = '{}/symbol_change.csv'.format(MOD_PATH)
+    SYMBOL_CHANGE_NEW_FILE = '{}/symbol_change_new.csv'.format(MOD_PATH)
+    MULTIPLIERS_FILE = '{}/multipliers.csv'.format(MOD_PATH)
+    MULTIPLIER_SKIPS_FILE = '{}/multipliers_skips.csv'.format(MOD_PATH)
+    INDEX_CHANGE_DUMP_XL = '{}/IndexInclExcl.xlsx'.format(MOD_PATH)
+    INDEX_CHANGE_DUMP_CSV = '{}/IndexInclExcl.csv'.format(MOD_PATH)
+    SYMBOL_MAPPING_FILE = '{}/symbol_mapping.csv'.format(MOD_PATH)
+    INDEX_CHANGE_MOD_CSV = '{}/IndexInclExclMod.csv'.format(MOD_PATH)
+    # INDEX_CHANGE_MOD_TEST_CSV = '{}/IndexInclExclModTest.csv'.format(MOD_PATH)
+    INDEX_COMPONENTS_CURR = '{}/index_components_curr.csv'.format(MOD_PATH)
+    INDEX_CHANGE_CSV = '{}/index_inc_exc.csv'.format(MOD_PATH)
+    SYMBOL_CHANGE_DUPLICATES_FILE = '{}/symbol_change_duplicates.csv'.format(MOD_PATH)
+    UNVERIFIED_SKIPPED_RECORDS_FILE = '{}/unverified_skipped_records.csv'.format(MOD_PATH)
+    UNVERIFIED_SELECTED_RECORDS_FILE = '{}/unverified_selected_records.csv'.format(MOD_PATH)
+    REPLACEBLE_SELECTED_RECORDS = '{}/replaceble_selected_records.csv'.format(MOD_PATH)
+    REPLACEBLE_SKIPPED_RECORDS = '{}/replaceble_skipped_records.csv'.format(MOD_PATH)
+    DUMP_REPORT = '{}/dump_report.csv'.format(INC_EXC_PATH)
+    MOD_DUMP_REPORT = '{}/mod_dump_report.csv'.format(INC_EXC_PATH)
 
     NIFTY_INDICES = {
         'NIFTY LargeMidcap 250': 'NLMC250',
@@ -482,7 +483,7 @@ class DataDB:
             self.truncate_table('tblSymbolRange', True)
             self.insert_records(final_recs, 'tblSymbolRange')
 
-    def load_modified_tbldumps(self, start_year='1995', end_year='2018'):
+    def load_modified_tbldumps(self, start_year='1995'):
         """
         Load tblModDumps from tblDumps with symbol changes and corrected records
         :param start_year: start year from which tables need to be updated
@@ -492,7 +493,7 @@ class DataDB:
         symbol_change_records = pd.read_csv(self.SYMBOL_CHANGE_FILE)
         symbol_changes = dict(zip(symbol_change_records.Old, symbol_change_records.New))
 
-        years_to_load = [year for year in self.YEARS if start_year <= year <= end_year]
+        years_to_load = [year for year in self.YEARS if start_year <= year <= YEARS[-1]]
 
         c = self.conn.cursor()
 
@@ -626,9 +627,11 @@ class DataDB:
 
         c.close()
 
+
     def index_change_xl_to_csv(self):
         """
-        Index Change excel file to one csv, use carefully. Ensure manual checks.
+        Index Change excel file to modified csv, use carefully. Ensure manual checks. 
+        Date column must be verified after run. Symbols not found should be updated after run.
         :return:
         """
 
@@ -636,7 +639,7 @@ class DataDB:
 
         sheets = wb_idx.sheetnames
 
-        cols = ['Index', 'Date', 'SymbolName', 'ChangeType']
+        cols = ['Index', 'Date', 'Symbol', 'ChangeType']
         records = []
 
         for sheet in sheets:
@@ -649,6 +652,31 @@ class DataDB:
 
         df = pd.DataFrame(records, columns=cols)
         df.to_csv(self.INDEX_CHANGE_DUMP_CSV, sep=',', index=False)
+
+        # Create corrected file
+
+        symbol_mapping_records = pd.read_csv(self.SYMBOL_MAPPING_FILE)
+        symbol_mapping = dict(zip(symbol_mapping_records.Scrip, symbol_mapping_records.Symbol))
+
+        all_scrips = set(df.Symbol)
+        scrips_with_symbols = set(symbol_mapping_records.Scrip)
+
+        for scrip in symbol_mapping.keys():
+            df.loc[df.Symbol == scrip, 'Symbol'] = symbol_mapping[scrip]
+
+        df.loc[df['ChangeType'].str.contains('Inclusion'), 'ChangeType'] = 'I'
+        df.loc[df['ChangeType'].str.contains('Exclusion'), 'ChangeType'] = 'E'
+
+        # Convert date to YYYYMMDD
+        df.Date = [x.strftime('%Y%m%d') if isinstance(x, dates.datetime) \
+            else dates.dd_mm_yyyy_to_yyyymmdd(x) for x in df.Date]
+
+        df.to_csv(self.INDEX_CHANGE_MOD_CSV, sep=',', index=False)
+
+        # Code to display scrips not converted to symbols
+        print('Scrips could not be mapped to symbols:')
+        print(all_scrips - scrips_with_symbols) 
+
 
     def check_symbol_dates(self):
         """
@@ -762,7 +790,7 @@ class DataDB:
         self.conn.commit()
         c.close()
 
-    def symbols_index_hist_files(self, indices='default', start_year='1995', end_year='2100'):
+    def symbols_index_hist_files(self, indices='default', start_year='1995'):
         """
         Create yearly files for symbols inclusion/exclusion in indices
         :param indices:
@@ -789,7 +817,7 @@ class DataDB:
                 'Nifty100 Liquid 15',
             )
 
-        years = [year for year in self.YEARS if start_year <= year <= end_year]
+        years = [year for year in self.YEARS if start_year <= year <= YEARS[-1]]
 
         c = self.conn.cursor()
 

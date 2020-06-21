@@ -199,6 +199,8 @@ def months(month, format='x'):
 
     return return_val
 
+def dd_mm_yyyy_to_yyyymmdd(date):
+    return '{}{}{}'.format(date[6:10], date[3:5], date[0:2])
 
 def missing_dates(check_dates, days=ALL_DAYS):
 
