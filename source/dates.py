@@ -80,7 +80,17 @@ def setdate(date, year=0, month=0, day=0):
 
     return strpdate.strftime('%Y-%m-%d')
 
-def datediff(date1, date2):
+def datediff(date1, date2=0):
+    """
+    Date input as yyyymmdd, yyyymmdd or [yyyymmdd, yyyymmdd]
+    """
+    if date2 == 0: # if both dates passed as vector to date1
+        date2 = str(date1[1])
+        date1 = str(date1[0])
+        date1, date2 = yyyymmdd_to_yyyy_mm_dd(date1), yyyymmdd_to_yyyy_mm_dd(date2)
+    else:
+        date1 , date2 = str(date1), str(date2)
+        date1, date2 = yyyymmdd_to_yyyy_mm_dd(date1), yyyymmdd_to_yyyy_mm_dd(date2)
     return (datetime.strptime(date1, '%Y-%m-%d') - datetime.strptime(date2, '%Y-%m-%d')).days
 
 # Below functions take input as YYYY-MM-DD as input date format
