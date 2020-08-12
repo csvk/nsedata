@@ -557,6 +557,15 @@ class DataDB:
         
         print('symbol range update complete')
 
+    def delta_date_check(self, start_date):
+        """
+        End in error if delta update date is older than latest available date
+        """
+        df = pd.read_sql_query("SELECT MAX(EndDate) MaxDate FROM tblSymbolRange", self.conn)
+
+        if int(df.MaxDate.iloc[0]) >= int(start_date):
+            raise Exception('Delta date {} is less than database date {}'.format(start_date, df.MaxDate.iloc[0])) 
+
     def load_modified_tbldumps(self, start_year='1995'):
         """
         Load tblModDumps from tblDumps with symbol changes and corrected records

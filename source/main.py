@@ -39,15 +39,16 @@ db = dbhandler.DataDB(DBPATH)
 #db.create_amibroker_import_files_index_incexc(index='Nifty 50', path=AMI_PATH, type='full')  # 12
 
 # For delta run:
-delta_date = '20200805'
-db.append_tbldumps_from_csv(CSVPATH, start_date=delta_date)  # 1
-db.calculate_skipped_record_errors(start_date=delta_date)  # 2
-db.load_dump_replace_records()  # May not be needed always  # 3 
-db.append_modified_tbldumps(delta_date)  # 4
-db.save_symbols_date_range_delta(delta_date)  # 5
-#db.load_multipliers(type='refresh')  # 6 May not be needed always
-db.update_adjusted_price(delta_date)  # 7
-#db.load_historical_index_components()  # 8 May not be needed always
+delta_date = '20200808'
+db.delta_date_check(delta_date)
+db.append_tbldumps_from_csv(CSVPATH, start_date=delta_date)  # 1 Usual run
+db.calculate_skipped_record_errors(start_date=delta_date)  # 2 Usual run
+db.load_dump_replace_records()  # 3 Usual run
+db.append_modified_tbldumps(delta_date)  # 4 Usual run
+db.save_symbols_date_range_delta(delta_date)  # 5 Usual run
+#db.load_multipliers(type='refresh')  # 6 May not be needed always, only on corporate actions
+db.update_adjusted_price(delta_date)  # 7 # Usual run
+#db.load_historical_index_components()  # 8 May not be needed always, after mont-end
 # db.symbols_index_hist_files_delta(delta_date)  # 9 for amibroker
 #db.create_amibroker_import_files(path=AMI_PATH, start_date=delta_date)  # 10 for amibroker
 #db.create_amibroker_import_files_index_incexc(index='Nifty 50', path=AMI_PATH, start_date=delta_date)  # 11 for amibroker
