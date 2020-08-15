@@ -563,8 +563,8 @@ class DataDB:
         """
         df = pd.read_sql_query("SELECT MAX(EndDate) MaxDate FROM tblSymbolRange", self.conn)
 
-        if int(df.MaxDate.iloc[0]) >= int(start_date):
-            raise Exception('Delta date {} is less than database date {}'.format(start_date, df.MaxDate.iloc[0])) 
+        assert int(df.MaxDate.iloc[0]) < int(start_date), 'Delta date {} must be greater than database date {}'.format(
+            start_date, df.MaxDate.iloc[0])
 
     def load_modified_tbldumps(self, start_year='1995'):
         """
@@ -1121,7 +1121,6 @@ class DataDB:
 
         idx_last_include.to_csv('{}/IndexInclExclModLastInc.csv'.format(self.MOD_PATH), sep=',', index=False)
 
-        errors = {}
         for index in idx_last_include['Index'].unique():
             last_inc_curr_index = idx_last_include[(idx_last_include.Index == index) & \
                 (idx_last_include.ChangeType == 'I')]['Symbol']
