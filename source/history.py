@@ -46,13 +46,12 @@ class History:
 
         df = self.db.fetch_records('tblModDump', [symbol], buffer_start, end_date)
 
-        df['Buffer'] = np.where(df.Date.astype(int) < int(start_date), True, None)
+        df['Buffer'] = np.where(df.Date.astype(int) < int(start_date), True, np.nan)
 
-        if not df.empty and df.AdjustedOpen.iloc[0] is None:
-            df.AdjustedOpen = df.Open
-            df.AdjustedHigh = df.High
-            df.AdjustedLow = df.Low
-            df.AdjustedClose = df.Close
+        df.AdjustedOpen = np.where(df.AdjustedOpen.isnull(), df.Open, df.AdjustedOpen)
+        df.AdjustedHigh = np.where(df.AdjustedHigh.isnull(), df.High, df.AdjustedHigh)
+        df.AdjustedLow = np.where(df.AdjustedLow.isnull(), df.Low, df.AdjustedLow)
+        df.AdjustedClose = np.where(df.AdjustedClose.isnull(), df.Close, df.AdjustedClose)
 
         return df
 
@@ -107,7 +106,7 @@ class History:
         # Symbol in index on buffer_start?
         try:
             index_flag_buffer_start = df_index_symbol[df_index_symbol.Date.astype(int) < \
-                int('20050801')].sort_values(by='Date', ascending=False).iloc[0].IndexFlag
+                int(buffer_start)].sort_values(by='Date', ascending=False).iloc[0].IndexFlag
         except IndexError:
             index_flag_buffer_start = False
 
