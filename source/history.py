@@ -16,45 +16,7 @@ class History:
         
     def __del__(self):
         pass
-
-    def date_check(self, start_date, end_date, buffer_start=0):
-        """Perform parameter date checks"""
-        assert int(start_date) <= int(end_date), 'End date {} cannot be less than start date {}'.format(
-                end_date, start_date)
-
-        if buffer_start == 0:
-            buffer_start = start_date
-        else:
-            assert int(buffer_start) <= int(start_date), 'Buffer start date {} must be less than equals start date {}'.format(
-                buffer_start, start_date)
-
-        return buffer_start
     
-    def symbol_history(self, symbol, start_date, end_date, buffer_start=0):
-        """
-        Return historical price data for symbol
-        :param symbol: symbol name
-        :param start_date: start date from which trading is allowed
-        :param end_date: end date till when trading is allowed
-        :param buffer_start: date before start date fetched to aid calculations
-        :return: ohlcv + split/bonus adjusted ohlc for symbol + buffer indicator for buffer days before start date
-        """
-
-        print('fetching data for ', symbol)
-
-        buffer_start = self.date_check(start_date, end_date, buffer_start)
-
-        df = self.db.fetch_records('tblModDump', [symbol], buffer_start, end_date)
-
-        df['Buffer'] = np.where(df.Date.astype(int) < int(start_date), True, np.nan)
-
-        df.AdjustedOpen = np.where(df.AdjustedOpen.isnull(), df.Open, df.AdjustedOpen)
-        df.AdjustedHigh = np.where(df.AdjustedHigh.isnull(), df.High, df.AdjustedHigh)
-        df.AdjustedLow = np.where(df.AdjustedLow.isnull(), df.Low, df.AdjustedLow)
-        df.AdjustedClose = np.where(df.AdjustedClose.isnull(), df.Close, df.AdjustedClose)
-
-        return df
-
     def index_change_history(self, index):
         """
         Return historical component data for index
@@ -69,59 +31,77 @@ class History:
             index), self.db.conn)
 
         return histIndex, histIndexDates
-
-    def symbol_history_indexflagged(self, symbol, index, start_date, end_date, buffer_start=0):
+    
+    def symbol_history(self, symbol, start_date, end_date, buffer_start=None, index=None):
         """
-        Return historical price data for symbol with additional flag to indicate if it was part of an index
+        Return historical price data for symbol
         :param symbol: symbol name
-        :param index: index to mark index flag to indicate if symbol was part of index on a given date
         :param start_date: start date from which trading is allowed
         :param end_date: end date till when trading is allowed
         :param buffer_start: date before start date fetched to aid calculations
+        :param index: index name if indicator for index includion should be included
         :return: ohlcv + split/bonus adjusted ohlc for symbol + buffer indicator for buffer days before start date
-                 + index flag
+                 + index flag if applicable
         """
 
-        buffer_start = self.date_check(start_date, end_date, buffer_start)
+        assert int(start_date) <= int(end_date), 'End date {} cannot be less than start date {}'.format(
+                end_date, start_date)
 
-        symbol_hist = self.symbol_history(symbol, start_date, end_date, buffer_start)
+        if buffer_start is None:
+            buffer_start = start_date
+        else:
+            assert int(buffer_start) <= int(start_date), 'Buffer start date {} must be less than equals start date {}'.format(
+                buffer_start, start_date)
 
-        histIndex, histIndexDates = self.index_change_history(index)
+        print('fetching data for ', symbol)
 
-        # Index change dates when symbol was part of index
-        df_symbol = histIndex[histIndex.Symbol == symbol]
+        df = self.db.fetch_records('tblModDump', [symbol], buffer_start, end_date)
 
-        # All index change dates with info on symbol present or absent
-        df_index_symbol = pd.merge(histIndexDates, df_symbol, how='left', on=['Date']).sort_values(by='Date')
-        df_index_symbol.Symbol = np.where(df_index_symbol.IndexName.notnull(), True, np.nan)
+        df['Buffer'] = np.where(df.Date.astype(int) < int(start_date), True, np.nan)
 
-        # Marking dates when symbol was removed from index - 1.0 = Present, 0.0 = Removal, NaN = Absent
-        df_index_symbol.Symbol.fillna(method='ffill', inplace=True, limit=1) 
-        df_index_symbol.Symbol = np.where((df_index_symbol.IndexName.isnull()) & \
-            (df_index_symbol.Symbol.notnull()), False, df_index_symbol.Symbol)
-        # Removing NaN records, renaming columns
-        df_index_symbol = df_index_symbol[df_index_symbol.Symbol.notnull()][['Date', 'Symbol']]
-        df_index_symbol.columns = ['Date', 'IndexFlag']
+        # Updated adjusted price columns if null
+        df.AdjustedOpen = np.where(df.AdjustedOpen.isnull(), df.Open, df.AdjustedOpen)
+        df.AdjustedHigh = np.where(df.AdjustedHigh.isnull(), df.High, df.AdjustedHigh)
+        df.AdjustedLow = np.where(df.AdjustedLow.isnull(), df.Low, df.AdjustedLow)
+        df.AdjustedClose = np.where(df.AdjustedClose.isnull(), df.Close, df.AdjustedClose)
 
-        # Symbol in index on buffer_start?
-        try:
-            index_flag_buffer_start = df_index_symbol[df_index_symbol.Date.astype(int) < \
-                int(buffer_start)].sort_values(by='Date', ascending=False).iloc[0].IndexFlag
-        except IndexError:
-            index_flag_buffer_start = False
+        if index is not None:
+            histIndex, histIndexDates = self.index_change_history(index)
 
-        df = pd.merge(symbol_hist, df_index_symbol, how='left', on=['Date']).sort_values(by='Date')
+            # Index change dates when symbol was part of index
+            df_symbol = histIndex[histIndex.Symbol == symbol]
 
-        # Fill up for all dates
-        df.IndexFlag.fillna(method='ffill', inplace=True) 
-        if index_flag_buffer_start == 1.0:
-            df.IndexFlag.fillna(method='bfill', inplace=True) 
-        # Mark dates when symbol not part of index as null
-        df.IndexFlag = np.where(df.IndexFlag is False, np.nan, df.IndexFlag) 
+            # All index change dates with info on symbol present or absent
+            df_index_symbol = pd.merge(histIndexDates, df_symbol, how='left', on=['Date']).sort_values(by='Date')
+            df_index_symbol.Symbol = np.where(df_index_symbol.IndexName.notnull(), True, np.nan)
+
+            # Marking dates when symbol was removed from index - 1.0 = Present, 0.0 = Removal, NaN = Absent
+            df_index_symbol.Symbol.fillna(method='ffill', inplace=True, limit=1) 
+            df_index_symbol.Symbol = np.where((df_index_symbol.IndexName.isnull()) & \
+                (df_index_symbol.Symbol.notnull()), False, df_index_symbol.Symbol)
+            # Removing NaN records, renaming columns
+            df_index_symbol = df_index_symbol[df_index_symbol.Symbol.notnull()][['Date', 'Symbol']]
+            df_index_symbol.columns = ['Date', 'IndexFlag']
+
+            # Symbol in index on buffer_start?
+            try:
+                index_flag_buffer_start = df_index_symbol[df_index_symbol.Date.astype(int) < \
+                    int(buffer_start)].sort_values(by='Date', ascending=False).iloc[0].IndexFlag
+            except IndexError:
+                index_flag_buffer_start = False
+
+            df = pd.merge(df, df_index_symbol, how='left', on=['Date']).sort_values(by='Date')
+
+            # Fill up for all dates
+            df.IndexFlag.fillna(method='ffill', inplace=True) 
+            if index_flag_buffer_start == 1.0:
+                df.IndexFlag.fillna(method='bfill', inplace=True) 
+            # Mark dates when symbol not part of index as null
+            df.IndexFlag = np.where(df.IndexFlag != 1.0, np.nan, df.IndexFlag) 
 
         return df
 
-    def index_components_history(self, index, start_date, end_date, buffer_start=0):
+    def index_components_history(self, index, start_date, end_date, buffer_start=None):
         """
         Return historical price data for symbols historically part of index
         :param index: index name
@@ -131,16 +111,13 @@ class History:
         :return: dict of dataframes with pricing history {symbol1: symbol1_history, symbol2: symbol2_history, ....}
         """
 
-        buffer_start = self.date_check(start_date, end_date, buffer_start)
-
         histIndex, _ = self.index_change_history(index)
-
         symbols = histIndex.Symbol.unique() # symbols historically part of index
 
         data = dict()
 
         for symbol in symbols:
-            symbol_data = self.symbol_history_indexflagged(symbol, index, start_date, end_date, buffer_start)
+            symbol_data = self.symbol_history(symbol, start_date, end_date, buffer_start, index=index)
             if symbol_data.IndexFlag.sum() > 0: # symbol part of index during requested period
                 data[symbol] = symbol_data
 
