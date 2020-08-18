@@ -537,20 +537,21 @@ class DataDB:
         df = pd.read_sql_query(qry, self.conn)
 
         for _, row in df.iterrows():   
-            row.MinDate, row.MaxDate, row.StartDate, row.EndDate = int(row.MinDate), int(row.MaxDate), \
-                int(row.StartDate), int(row.EndDate)
             if row.TableSource is None: # Symbol not in tblSymbolRange; Insert Record
                 c.execute('INSERT INTO tblSymbolRange VALUES ("{}", "{}", {}, {})'.format(
                     row.Symbol, row.Source, row.MinDate, row.MaxDate))  
-            if row.MinDate > row.StartDate: # Symbol exists for earlier dates; No action
-                pass
-            if row.MinDate <= row.StartDate: # Error: Symbol start date later than new dates; Investigate
-                print('MinDate <= StartDate - ', row.Symbol, row.MinDate, row.MaxDate, row.Source, row.TableSource, row.StartDate, row.EndDate)
-            if row.MaxDate <= row.EndDate: # Error Symbol date range ends later than actual data; Investigate
-                print('MaxDate <= EndDate -', row.Symbol, row.MinDate, row.MaxDate, row.Source, row.TableSource, row.StartDate, row.EndDate)
-            if row.MaxDate > row.EndDate: # New records with later dates; Update Record
-                c.execute('UPDATE tblSymbolRange SET EndDate = {} WHERE Symbol = "{}" AND TableSource = "{}"'.format(
-                    row.MaxDate, row.Symbol, row.Source))
+            else:
+                row.MinDate, row.MaxDate, row.StartDate, row.EndDate = int(row.MinDate), int(row.MaxDate), \
+                    int(row.StartDate), int(row.EndDate)
+                if row.MinDate > row.StartDate: # Symbol exists for earlier dates; No action
+                    pass
+                if row.MinDate <= row.StartDate: # Error: Symbol start date later than new dates; Investigate
+                    print('MinDate <= StartDate - ', row.Symbol, row.MinDate, row.MaxDate, row.Source, row.TableSource, row.StartDate, row.EndDate)
+                if row.MaxDate <= row.EndDate: # Error Symbol date range ends later than actual data; Investigate
+                    print('MaxDate <= EndDate -', row.Symbol, row.MinDate, row.MaxDate, row.Source, row.TableSource, row.StartDate, row.EndDate)
+                if row.MaxDate > row.EndDate: # New records with later dates; Update Record
+                    c.execute('UPDATE tblSymbolRange SET EndDate = {} WHERE Symbol = "{}" AND TableSource = "{}"'.format(
+                        row.MaxDate, row.Symbol, row.Source))
 
         self.conn.commit()
         c.close()
