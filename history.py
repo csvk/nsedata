@@ -4,7 +4,7 @@ Created on Aug 12, 2020
 @Program Function: Read price history
 """
 
-import datadbhandler as dbhandler
+from . import datadbhandler as dbhandler
 import numpy as np
 import pandas as pd
 

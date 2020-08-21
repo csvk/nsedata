@@ -5,7 +5,7 @@ Created on Jun 10, 2018
 """
 
 import os
-import dates, utils
+from . import dates, utils
 import pandas as pd
 import numpy as np
 import sqlite3
@@ -24,7 +24,6 @@ class DataDB:
 
     MOD_PATH = 'nse_eod_modifiers'
     INC_EXC_PATH = 'inc_exc_files'
-    # BONUS_SPLITS_FILE = '{}/bonus_splits.csv'.format(MOD_PATH)
     SYMBOL_CHANGE_FILE = '{}/symbol_change.csv'.format(MOD_PATH)
     SYMBOL_CHANGE_NEW_FILE = '{}/symbol_change_new.csv'.format(MOD_PATH)
     MULTIPLIERS_FILE = '{}/multipliers.csv'.format(MOD_PATH)
@@ -34,9 +33,7 @@ class DataDB:
     SYMBOL_MAPPING_FILE = '{}/symbol_mapping.csv'.format(MOD_PATH)
     INDEX_CHANGE_MOD_CSV = '{}/IndexInclExclMod.csv'.format(MOD_PATH)
     INDEX_CHANGE_MANUAL_CSV = '{}/IndexInclExclManual.csv'.format(MOD_PATH)
-    # INDEX_CHANGE_MOD_TEST_CSV = '{}/IndexInclExclModTest.csv'.format(MOD_PATH)
     INDEX_COMPONENTS_CURR = '{}/index_components_curr.csv'.format(MOD_PATH)
-    INDEX_CHANGE_CSV = '{}/index_inc_exc.csv'.format(MOD_PATH)
     SYMBOL_CHECK_REPORT = '{}/symbol_check_report.csv'.format(MOD_PATH)
     SYMBOL_CHANGE_DUPLICATES_FILE = '{}/symbol_change_duplicates.csv'.format(MOD_PATH)
     UNVERIFIED_SKIPPED_RECORDS_FILE = '{}/unverified_skipped_records.csv'.format(MOD_PATH)
@@ -88,11 +85,10 @@ class DataDB:
         'Nifty50 Value 20': 'N50VAL20',
     }
 
-    def __init__(self, db, type='EQ'):
+    def __init__(self, db, years=None):
 
-        # variables
-
-        self.TYPE = type
+        if years is not None:
+            self.YEARS = years
 
         print('Opening Bhavcopy database {}...'.format(db))
         self.conn = sqlite3.connect(db)
@@ -705,7 +701,6 @@ class DataDB:
 
         c.close()
 
-
     def index_change_xl_to_csv(self):
         """
         Index Change excel file to modified csv, use carefully. Ensure manual checks. 
@@ -778,7 +773,6 @@ class DataDB:
         for scrip in (all_scrips - scrips_with_symbols):
             print(scrip)
 
-
     def check_symbol_dates(self):
         """
         Validate index change file to see if symbols are present on those days
@@ -823,49 +817,6 @@ class DataDB:
         result.DiffAfter = np.where(result.DiffAfter < 0, 0, result.DiffAfter)
 
         result.to_csv(self.SYMBOL_CHECK_REPORT, sep=',', index=False)
-
-
-    def check_symbol_dates_old(self):
-        """
-        Validate index change file to see if symbols are present on those days
-        :return:
-        """
-
-        df = pd.read_csv(self.INDEX_CHANGE_CSV)
-        range_d = pd.read_csv('nse_eod_modifiers/symbol_range.csv')
-        range_mod = pd.read_csv('nse_eod_modifiers/symbol_range_mod.csv')
-
-        for idx, row in df.iterrows():
-            s_range_mod = range_mod[range_mod.Symbol == row['Symbol']]
-            s_range = range_d[range_d.Symbol == row['Symbol']]
-            if not s_range_mod.empty:
-                if s_range_mod.iloc[0]['StartDate'] < row['Date'] < s_range_mod.iloc[0]['EndDate']:
-                    print('{},found in tblMod within range,{},{},{}'.format(row['Symbol'], row['Date'],
-                                                                            s_range_mod.iloc[0]['StartDate'],
-                                                                            s_range_mod.iloc[0]['EndDate']))
-                else:
-                    if not s_range.empty:
-                        if s_range.iloc[0]['StartDate'] < row['Date'] < s_range.iloc[0]['EndDate']:
-                            print('{},found in tblDump within range,{},{},{}'.format(row['Symbol'], row['Date'],
-                                                                                     s_range.iloc[0]['StartDate'],
-                                                                                     s_range.iloc[0]['EndDate']))
-                        else:
-                            print('{},found in tblMod outside range,{},{},{}'.format(row['Symbol'], row['Date'],
-                                                                                     s_range_mod.iloc[0]['StartDate'],
-                                                                                     s_range_mod.iloc[0]['EndDate']))
-            else:
-                if not s_range.empty:
-                    if s_range.iloc[0]['StartDate'] < row['Date'] < s_range.iloc[0]['EndDate']:
-                        print('{},found in tblDump within range,{},{},{}'.format(row['Symbol'], row['Date'],
-                                                                                 s_range.iloc[0]['StartDate'],
-                                                                                 s_range.iloc[0]['EndDate']))
-                    else:
-                        print('{},found in tblDump outside range,{},{},{}'.format(row['Symbol'], row['Date'],
-                                                                                  s_range.iloc[0]['StartDate'],
-                                                                                  s_range.iloc[0]['EndDate']))
-                else:
-                    print('{},{},not found'.format(row['Symbol'], row['Date']))
-
 
     def table_report(self):
 
@@ -1126,8 +1077,6 @@ class DataDB:
             last_inc_curr_index = idx_last_include[(idx_last_include.Index == index) & \
                 (idx_last_include.ChangeType == 'I')]['Symbol']
             idx_components_curr_index = idx_components_curr[idx_components_curr.Index == index]['Symbol']
-            #print('curr index components', len(idx_components_curr_index), idx_components_curr_index)
-            #print('curr index last includes', len(last_inc_curr_index), last_inc_curr_index)
 
             idx_components = set(idx_components_curr_index)
             last_includes = set(last_inc_curr_index)
@@ -1287,10 +1236,3 @@ class DataDB:
                 df = df[['Symbol', 'Date', 'Open', 'High', 'Low', 'Close', index]]
                 df.Symbol = df.Symbol + '.{}'.format(self.NIFTY_INDICES_AMI[index])
                 df.to_csv('{}{}.{}.csv'.format(path, self.NIFTY_INDICES_AMI[index], start_date), sep=',', index=False)
-
-
-
-
-
-
-
