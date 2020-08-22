@@ -5,6 +5,7 @@ Created on Aug 12, 2020
 """
 
 from . import datadbhandler as dbhandler
+from . import dates
 import numpy as np
 import pandas as pd
 
@@ -33,7 +34,7 @@ class History:
 
         return histIndex, histIndexDates
     
-    def symbol_history(self, symbol, start_date, end_date, buffer_start=None, index=None):
+    def symbol_history(self, symbol, start_date, end_date, buffer_start=None, index=None, parsedates=True):
         """
         Return historical price data for symbol
         :param symbol: symbol name
@@ -41,6 +42,7 @@ class History:
         :param end_date: end date till when trading is allowed
         :param buffer_start: date before start date fetched to aid calculations
         :param index: index name if indicator for index includion should be included
+        :param parsedates: convert Date column to datetime type and use it as index
         :return: ohlcv + split/bonus adjusted ohlc for symbol + buffer indicator for buffer days before start date
                  + index flag if applicable
         """
@@ -100,15 +102,22 @@ class History:
             # Mark dates when symbol not part of index as null
             df.IndexFlag = np.where(df.IndexFlag != 1.0, np.nan, df.IndexFlag) 
 
+        if parsedates:
+            # Convert Date column to datetime type, set index to the Date column
+            df.Date = df.Date.apply(dates.todate)
+            df.index = df.Date
+            df.drop(columns='Date', inplace=True)
+
         return df
 
-    def index_components_history(self, index, start_date, end_date, buffer_start=None):
+    def index_components_history(self, index, start_date, end_date, buffer_start=None, parsedates=True):
         """
         Return historical price data for symbols historically part of index
         :param index: index name
         :param start_date: start date from which trading is allowed
         :param end_date: end date till when trading is allowed
         :param buffer_start: date before start date fetched to aid calculations
+        :param parsedates: convert Date column to datetime type and use it as index
         :return: dict of dataframes with pricing history {symbol1: symbol1_history, symbol2: symbol2_history, ....}
         """
 
@@ -118,7 +127,8 @@ class History:
         data = dict()
 
         for symbol in symbols:
-            symbol_data = self.symbol_history(symbol, start_date, end_date, buffer_start, index=index)
+            symbol_data = self.symbol_history(symbol, start_date, end_date, buffer_start,
+                                              index=index, parsedates=parsedates)
             if symbol_data.IndexFlag.sum() > 0: # symbol part of index during requested period
                 data[symbol] = symbol_data
 

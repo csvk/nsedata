@@ -93,6 +93,12 @@ def datediff(date1, date2=0):
         date1, date2 = yyyymmdd_to_yyyy_mm_dd(date1), yyyymmdd_to_yyyy_mm_dd(date2)
     return (datetime.strptime(date1, '%Y-%m-%d') - datetime.strptime(date2, '%Y-%m-%d')).days
 
+def todate(date):
+    """
+    Date input as yyyymmdd, return datetime
+    """
+    return datetime.strptime(str(date), '%Y%m%d')
+
 # Below functions take input as YYYY-MM-DD as input date format
 
 def yyyy_mm_dd_to_yyyymmdd(date):
