@@ -1,10 +1,10 @@
 # Description
 #### 1. Loads NSE bhavcopy file downloaded using Hemen Kapadia's getbhavcopy tool into nsedata project database
 #### 2. Performs data cleanup, split/bonus adjustments
-#### 3. Provides history api to read historical stockk data into pandas dataframes
+#### 3. Provides history api to read historical stock data into pandas dataframes
 #### 4. Sample input data files in data folder as of 2020-08-21
 
-# Use updatedb.ipynb notebook to run DB update
+# Use updatedb.ipynb notebook to run
 
 
 ```python
@@ -20,13 +20,12 @@ AMI_PATH = 'amibroker_files/'        # Relative path to create Amibroker files -
 ```python
 import os
 os.chdir(NSEDATAROOTDIR)
-import nsedata.datadbhandler as dbhandler
 ```
 
 
 ```python
-os.chdir(PATH)
-db = dbhandler.DataDB(DBPATH)
+import nsedata.datadbhandler as dbhandler
+db = dbhandler.DataDB(path=PATH, db=DBPATH)
 ```
 
 ### Run following cell for delta run
@@ -68,4 +67,47 @@ db.update_adjusted_price(delta_date)  # 7 # Usual run
 monthly_update = False
 if monthly_update:
     db.load_historical_index_components()  # 8 May not be needed always, after month-end
+```
+
+### Use below sample codes to read historical stock data
+
+
+```python
+os.chdir(NSEDATAROOTDIR)
+import nsedata.history as history
+
+hist =  history.History(path=PATH, db=DBPATH)
+```
+
+#### Fetch individual symbol stock price history
+
+
+```python
+TCS = hist.symbol_history(symbol='TCS',
+                          start_date='20040801',
+                          end_date='20200820',
+                          buffer_start='20040301', # optional
+                          index='Nifty 50'         # optional
+                         )
+```
+
+
+```python
+TCS.head()
+```
+
+### Fetch historical stock price data for index components
+
+
+```python
+NIFTY50 = hist.index_components_history(index='Nifty 50',
+                          start_date='20190801',
+                          end_date='20190820',
+                          buffer_start='20190301', # optional
+                         )
+```
+
+
+```python
+NIFTY50['TCS']
 ```

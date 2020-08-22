@@ -85,11 +85,13 @@ class DataDB:
         'Nifty50 Value 20': 'N50VAL20',
     }
 
-    def __init__(self, db, years=None):
+    def __init__(self, path, db, years=None):
 
         if years is not None:
             self.YEARS = years
 
+        os.chdir(path)
+        
         print('Opening Bhavcopy database {}...'.format(db))
         self.conn = sqlite3.connect(db)
         self.engine = create_engine('sqlite:///{}'.format(db))

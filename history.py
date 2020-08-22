@@ -11,8 +11,9 @@ import pandas as pd
 class History:
     """Read historical price data from database"""
 
-    def __init__(self, dbpath):
-        self.db = dbhandler.DataDB(dbpath)
+    def __init__(self, path, db):
+
+        self.db = dbhandler.DataDB(path, db)
         
     def __del__(self):
         pass
