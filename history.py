@@ -33,8 +33,18 @@ class History:
             index), self.db.conn)
 
         return histIndex, histIndexDates
+
+    def split_history(self, symbol):
+        """
+        Return split history for symbol
+        :param symbol: symbol name
+        :return: split history for symbol
+        """
+        return(pd.read_sql_query('''SELECT Date, Multiplier AS Split FROM tblMultipliers 
+                                            WHERE Symbol = '{}' ORDER BY Date'''.format(symbol), self.db.conn))
     
-    def symbol_history(self, symbol, start_date, end_date, buffer_start=None, index=None, parsedates=True):
+    def symbol_history(self, symbol, start_date, end_date, buffer_start=None, index=None, split=True,
+        parsedates=True, log=False):
         """
         Return historical price data for symbol
         :param symbol: symbol name
@@ -42,9 +52,11 @@ class History:
         :param end_date: end date till when trading is allowed
         :param buffer_start: date before start date fetched to aid calculations
         :param index: index name if indicator for index includion should be included
+        :param split: True if split data is needed
         :param parsedates: convert Date column to datetime type and use it as index
+        :param log: indicates if data fetch logs are to be displayed
         :return: ohlcv + split/bonus adjusted ohlc for symbol + buffer indicator for buffer days before start date
-                 + index flag if applicable
+                 + index flag if applicable + split multiplier if applicable
         """
 
         assert int(start_date) <= int(end_date), 'End date {} cannot be less than start date {}'.format(
@@ -56,11 +68,10 @@ class History:
             assert int(buffer_start) <= int(start_date), 'Buffer start date {} must be less than equals start date {}'.format(
                 buffer_start, start_date)
 
-        print('fetching data for ', symbol)
-
         df = self.db.fetch_records('tblModDump', [symbol], buffer_start, end_date)
 
-        df['Buffer'] = np.where(df.Date.astype(int) < int(start_date), True, np.nan)
+        if buffer_start != start_date:
+            df['Buffer'] = np.where(df.Date.astype(int) < int(start_date), True, np.nan)
 
         # Updated adjusted price columns if null
         df.AdjustedOpen = np.where(df.AdjustedOpen.isnull(), df.Open, df.AdjustedOpen)
@@ -68,6 +79,7 @@ class History:
         df.AdjustedLow = np.where(df.AdjustedLow.isnull(), df.Low, df.AdjustedLow)
         df.AdjustedClose = np.where(df.AdjustedClose.isnull(), df.Close, df.AdjustedClose)
 
+        # Index Flag
         if index is not None:
             histIndex, histIndexDates = self.index_change_history(index)
 
@@ -102,22 +114,33 @@ class History:
             # Mark dates when symbol not part of index as null
             df.IndexFlag = np.where(df.IndexFlag != 1.0, np.nan, df.IndexFlag) 
 
+        # Split data
+        if split:
+            split = self.split_history(symbol)
+            df = pd.merge(df, split, how='left', on=['Date']).sort_values(by='Date')
+
         if parsedates:
             # Convert Date column to datetime type, set index to the Date column
             df.Date = df.Date.apply(dates.todate)
             df.index = df.Date
             df.drop(columns='Date', inplace=True)
 
+        if log:
+            print('data fetch successful for ', symbol)
+
         return df
 
-    def index_components_history(self, index, start_date, end_date, buffer_start=None, parsedates=True):
+    def index_components_history(self, index, start_date, end_date, buffer_start=None, split=True, 
+        parsedates=True, log=False):
         """
         Return historical price data for symbols historically part of index
         :param index: index name
         :param start_date: start date from which trading is allowed
         :param end_date: end date till when trading is allowed
         :param buffer_start: date before start date fetched to aid calculations
+        :param split: True if split data is needed
         :param parsedates: convert Date column to datetime type and use it as index
+        :param log: indicates if data fetch logs are to be displayed
         :return: dict of dataframes with pricing history {symbol1: symbol1_history, symbol2: symbol2_history, ....}
         """
 
@@ -128,7 +151,7 @@ class History:
 
         for symbol in symbols:
             symbol_data = self.symbol_history(symbol, start_date, end_date, buffer_start,
-                                              index=index, parsedates=parsedates)
+                                              index=index, split=split, parsedates=parsedates)
             if symbol_data.IndexFlag.sum() > 0: # symbol part of index during requested period
                 data[symbol] = symbol_data
 
