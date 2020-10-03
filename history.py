@@ -118,6 +118,7 @@ class History:
         if split:
             split = self.split_history(symbol)
             df = pd.merge(df, split, how='left', on=['Date']).sort_values(by='Date')
+            df.Split.fillna(value=0, inplace=True) 
 
         if parsedates:
             # Convert Date column to datetime type, set index to the Date column
