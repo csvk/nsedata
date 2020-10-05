@@ -8,6 +8,7 @@ from . import datadbhandler as dbhandler
 from . import dates
 import numpy as np
 import pandas as pd
+import pickle as pkl
 
 class History:
     """Read historical price data from database"""
@@ -132,7 +133,7 @@ class History:
         return df
 
     def index_components_history(self, index, start_date, end_date, buffer_start=None, split=True, 
-        parsedates=True, log=False):
+        parsedates=True, log=True):
         """
         Return historical price data for symbols historically part of index
         :param index: index name
@@ -152,9 +153,16 @@ class History:
 
         for symbol in symbols:
             symbol_data = self.symbol_history(symbol, start_date, end_date, buffer_start,
-                                              index=index, split=split, parsedates=parsedates)
+                                              index=index, split=split, parsedates=parsedates, log=log)
             if symbol_data.IndexFlag.sum() > 0: # symbol part of index during requested period
                 data[symbol] = symbol_data
 
         return data
 
+    def _export(self, data, file):
+        '''Save history to file'''
+        pkl.dump(data, open(file, 'wb'))
+
+    def _import(self, file):
+        '''Read history from file'''
+        return pkl.load(open(file, 'rb'))
