@@ -111,3 +111,11 @@ NIFTY50 = hist.index_components_history(index='Nifty 50',
 ```python
 NIFTY50['TCS']
 ```
+
+### Slice fetched data based
+
+
+```python
+h2 = hist.copy()
+h2.slice(symbols=['TCS', 'INFY'], start_date='2019-08-06', end_date='2019-08-09')
+```
