@@ -50,8 +50,7 @@ class History:
         return(pd.read_sql_query('''SELECT Date, Multiplier AS Split FROM tblMultipliers 
                                             WHERE Symbol = '{}' ORDER BY Date'''.format(symbol), self.datadb.conn))
     
-    def symbol_history(self, symbol, start_date, end_date, buffer_start=None, index=None, split=True,
-        parsedates=True, log=False):
+    def symbol_history(self, symbol, start_date, end_date, buffer_start=None, index=None, split=True, log=False):
         """
         Return historical price data for symbol
         :param symbol: symbol name
@@ -60,7 +59,6 @@ class History:
         :param buffer_start: date before start date fetched to aid calculations
         :param index: index name if indicator for index includion should be included
         :param split: True if split data is needed
-        :param parsedates: convert Date column to datetime type and use it as index
         :param log: indicates if data fetch logs are to be displayed
         :return: ohlcv + split/bonus adjusted ohlc for symbol + buffer indicator for buffer days before start date
                  + index flag if applicable + split multiplier if applicable
@@ -127,21 +125,17 @@ class History:
             df = pd.merge(df, split, how='left', on=['Date']).sort_values(by='Date')
             df.Split.fillna(value=0, inplace=True) 
 
-        if parsedates:
-            # Convert Date column to datetime type, set index to the Date column
-            df.Date = df.Date.apply(dates.todate)
-            df.index = df.Date
-            df.drop(columns='Date', inplace=True)
+        # Convert Date column to datetime type, set index to the [Symbol, Date] columns
+        df.Date = df.Date.apply(dates.todate)
+        df.set_index(['Symbol', 'Date'], inplace=True)
 
         if log:
             print('data fetch successful for ', symbol)
 
-        self.data = {symbol: df}
-        self.sldata = None
+        self.data = df
         return df
 
-    def index_components_history(self, index, start_date, end_date, buffer_start=None, split=True, 
-        parsedates=True, log=True):
+    def index_components_history(self, index, start_date, end_date, buffer_start=None, split=True, log=True):
         """
         Return historical price data for symbols historically part of index
         :param index: index name
@@ -149,7 +143,6 @@ class History:
         :param end_date: end date till when trading is allowed
         :param buffer_start: date before start date fetched to aid calculations
         :param split: True if split data is needed
-        :param parsedates: convert Date column to datetime type and use it as index
         :param log: indicates if data fetch logs are to be displayed
         :return: dict of dataframes with pricing history {symbol1: symbol1_history, symbol2: symbol2_history, ....}
         """
@@ -157,16 +150,15 @@ class History:
         histIndex, _ = self.index_change_history(index)
         symbols = histIndex.Symbol.unique() # symbols historically part of index
 
-        data = dict()
+        data = pd.DataFrame()
 
         for symbol in symbols:
             symbol_data = self.symbol_history(symbol, start_date, end_date, buffer_start,
-                                              index=index, split=split, parsedates=parsedates, log=log)
+                                              index=index, split=split, log=log)
             if symbol_data.IndexFlag.sum() > 0: # symbol part of index during requested period
-                data[symbol] = symbol_data
-
+                data = pd.concat([data, symbol_data], axis=0)
+        
         self.data = data
-        self.sldata = None
         return data
 
     def _export(self, file):
@@ -178,64 +170,45 @@ class History:
         self.data = pkl.load(open(file, 'rb'))
         return self.data
 
-    def serialize(self, inplace=True):
+    def todict(self):
         """
-        Serialize dict data to a dataframe multi-indexed by symbol & date
-        :return: serialized multiindex pandas dataframe
-        """
-        
-        sldata = pd.DataFrame()
-        for symbol, data in self.data.items():
-            df = data.copy()
-            df.reset_index(inplace=True)
-            df.set_index(['Symbol', 'Date'], inplace=True)
-            sldata = pd.concat([sldata, df], axis=0)
-
-        if inplace:
-            self.sldata = sldata
-
-        return sldata
-
-    def deserialize(self, inplace=True):
-        """
-        Deserialize multi-index pandas data to default dict format
+        Deserialize multi-index pandas data to dict format
         :param log: indicates if data fetch logs are to be displayed
         :return: deserialized data in dictionary format 
         """
-        symbols = self.sldata.index.get_level_values(0).unique()
+
+        symbols = self.data.index.get_level_values(0).unique()
         data = dict()
         for s in symbols:
-            data[s] = self.sldata.xs(s)
+            data[s] = self.data.xs(s)
 
-        if inplace:
-            self.data = data
         return data
 
-    def slice(self, symbols=None, start_date=None, end_date=None, inplace=True):
+    def slice(self, symbols=None, start_date=None, end_date=None, inplace=False, exdata=None):
         """
         Slice data based on symbols and dates
         :param symbols: slice symbol or [symbol1, symbol2, ....]
         :param start_date: slice start date
         :param end_date: slice end date
+        :inplace: indicates if self.data should be updated
+        :exdata: if external dataframe other than self.data should be used for slice
         :return: sliced data in dictionary format
         """
 
         assert symbols or start_date,  'Symbol or Date range required for slice'
+        if isinstance(exdata, pd.core.frame.DataFrame):
+            assert not inplace, 'inplace cannot be True when external data is passed'
 
         if isinstance(symbols, str):
             symbols = [symbols]
 
-        if self.sldata is not None:
-            sldata = self.sldata
-        else:
-            sldata = self.serialize() if inplace else self.serialize(inplace=False)
-
         end_date = start_date if end_date is None else end_date
-        symbols = symbols if symbols else self.sldata.index.get_level_values(0).unique()
+        symbols = symbols if symbols else self.data.index.get_level_values(0).unique()
 
+        alldata = self.data if exdata is None else exdata
         data = pd.DataFrame()
         for s in symbols:
-            df = sldata.xs(s)
+            df = alldata.xs(s)
             if start_date:
                 df = df.loc[start_date:end_date]
             df.insert(0, 'Symbol', s)
@@ -244,10 +217,7 @@ class History:
             data = pd.concat([data, df], axis=0)
 
         if inplace:
-            self.sldata = data
-            data = self.deserialize()
-        else:
-            data = self.deserialize(inplace=False)
+            self.data = data
 
         return data
 
