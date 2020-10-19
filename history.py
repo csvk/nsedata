@@ -129,6 +129,24 @@ class History:
         df.Date = df.Date.apply(dates.todate)
         df.set_index(['Symbol', 'Date'], inplace=True)
 
+        # Rename index & columns to all smalls
+        colnames = {
+            'Open': 'open', 
+            'High': 'high', 
+            'Low': 'low', 
+            'Close': 'close', 
+            'Volume': 'volume', 
+            'AdjustedOpen': 'adjopen',
+            'AdjustedHigh': 'adjhigh', 
+            'AdjustedLow': 'adjlow', 
+            'AdjustedClose': 'adjclose', 
+            'IndexFlag': 'idxflag', 
+            'Split': 'split'
+            }
+        indexnames = ['symbol', 'date']
+        df.rename(columns=colnames, inplace=True)
+        df.index.rename(indexnames, inplace=True)
+
         if log:
             print('data fetch successful for ', symbol)
 
@@ -155,7 +173,7 @@ class History:
         for symbol in symbols:
             symbol_data = self.symbol_history(symbol, start_date, end_date, buffer_start,
                                               index=index, split=split, log=log)
-            if symbol_data.IndexFlag.sum() > 0: # symbol part of index during requested period
+            if symbol_data.idxflag.sum() > 0: # symbol part of index during requested period
                 data = pd.concat([data, symbol_data], axis=0)
         
         self.data = data
@@ -211,9 +229,9 @@ class History:
             df = alldata.xs(s)
             if start_date:
                 df = df.loc[start_date:end_date]
-            df.insert(0, 'Symbol', s)
+            df.insert(0, 'symbol', s)
             df.reset_index(inplace=True)
-            df.set_index(['Symbol', 'Date'], inplace=True)
+            df.set_index(['symbol', 'date'], inplace=True)
             data = pd.concat([data, df], axis=0)
 
         if inplace:
